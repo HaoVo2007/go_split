@@ -28,6 +28,14 @@ type GroupRepository interface {
 
 type ExpenseRepository interface {
 	CreateExpense(ctx context.Context, expense entity.Expenses) error
+	GetExpenseById(ctx context.Context, expenseID primitive.ObjectID) (*entity.Expenses, error)
+	UpdateExpenseById(ctx context.Context, expenseID primitive.ObjectID, expense *entity.Expenses) error
 	GetExpensesByGroupID(ctx context.Context, groupID string) ([]*entity.Expenses, error)
 	GetExpensesByGroupIDs(ctx context.Context, groupIDs []string) ([]*entity.Expenses, error)
+}
+
+type ExpenseSplitRepository interface {
+	CreateExpenseSplits(ctx context.Context, expenseSplits []entity.ExpenseSplits) error
+	GetExpenseSplitsByExpenseIDs(ctx context.Context, expenseIDs []string) ([]*entity.ExpenseSplits, error)
+	GetExpenseSplitsByExpenseID(ctx context.Context, expenseID string) ([]*entity.ExpenseSplits, error)
 }

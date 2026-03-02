@@ -41,15 +41,21 @@ func ToGroupResponse(group *entity.Groups, members []*entity.Users) *groupRes.Gr
 		if member.Profile.Phone != nil {
 			phone = *member.Profile.Phone
 		}
-		
+
+		imagePublicID := ""
+		if member.Profile.ImagePublicID != nil {
+			imagePublicID = *member.Profile.ImagePublicID
+		}
+
 		membersResponse[i] = &userRes.UserResponse{
-			ID:      member.ID.Hex(),
-			Email:   member.Email,
-			Role:    member.Role,
-			Name:    &name,
-			Image:   &image,
-			Address: &address,
-			Phone:   &phone,
+			ID:            member.ID.Hex(),
+			Email:         member.Email,
+			Role:          member.Role,
+			Name:          &name,
+			Image:         &image,
+			ImagePublicID: &imagePublicID,
+			Address:       &address,
+			Phone:         &phone,
 		}
 	}
 

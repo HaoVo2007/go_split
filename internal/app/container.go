@@ -26,9 +26,10 @@ type Container struct {
 }
 
 type Repository struct {
-	UserRepository    repository.UserRepository
-	GroupRepository   repository.GroupRepository
-	ExpenseRepository repository.ExpenseRepository
+	UserRepository         repository.UserRepository
+	GroupRepository        repository.GroupRepository
+	ExpenseRepository      repository.ExpenseRepository
+	ExpenseSplitRepository repository.ExpenseSplitRepository
 }
 
 type UseCase struct {
@@ -103,12 +104,13 @@ func (c *Container) initRepositories() {
 	c.Repository.UserRepository = infrastructureRepository.NewUserRepositoryMongo(c.MongoDB.Collection("users"))
 	c.Repository.GroupRepository = infrastructureRepository.NewGroupRepositoryMongo(c.MongoDB.Collection("groups"))
 	c.Repository.ExpenseRepository = infrastructureRepository.NewExpenseRepositoryMongo(c.MongoDB.Collection("expenses"))
+	c.Repository.ExpenseSplitRepository = infrastructureRepository.NewExpenseSplitRepository(c.MongoDB.Collection("expense_splits"))
 }
 
 func (c *Container) initUseCases() {
 	c.UseCase.UserUseCase = usecase.NewUserUseCase(c.Repository.UserRepository, c.CloudinaryUploader)
 	c.UseCase.GroupUseCase = usecase.NewGroupUseCase(c.Repository.GroupRepository, c.Repository.UserRepository, c.CloudinaryUploader)
-	c.UseCase.ExpenseUseCase = usecase.NewExpenseUseCase(c.Repository.ExpenseRepository, c.Repository.GroupRepository, c.Repository.UserRepository)
+	c.UseCase.ExpenseUseCase = usecase.NewExpenseUseCase(c.Repository.ExpenseRepository, c.Repository.ExpenseSplitRepository, c.Repository.GroupRepository, c.Repository.UserRepository, c.CloudinaryUploader)
 }
 
 func (c *Container) initHandlers() {

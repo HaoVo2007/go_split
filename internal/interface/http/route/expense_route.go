@@ -15,6 +15,11 @@ func SetupExpenseRoutes(
 	expenseRouter.Use(middleware.AuthMiddleware())
 	{
 		expenseRouter.POST("/", expenseHandler.CreateExpense)
-		expenseRouter.GET("/:group_id", expenseHandler.GetExpensesByGroupID)
+		expenseRouter.GET("/:id", expenseHandler.GetExpenseById)
+		expenseRouter.PUT("/:id", expenseHandler.UpdateExpenseById)
+		expenseRouter.DELETE("/:id", expenseHandler.DeleteExpenseById)
+		expenseRouter.GET("/:id/settlement", expenseHandler.GetSettlementByExpenseID)
+		expenseRouter.GET("/group/:group_id", expenseHandler.GetExpensesByGroupID)
+		expenseRouter.GET("/group/:group_id/balance", expenseHandler.GetBalanceByGroupID)
 	}
 }

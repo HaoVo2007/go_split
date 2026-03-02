@@ -6,6 +6,7 @@ import (
 	"go-split/internal/domain/repository"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -27,9 +28,42 @@ func (r *expenseRepositoryMongo) CreateExpense(ctx context.Context, expense enti
 	return nil
 }
 
+func (r *expenseRepositoryMongo) GetExpenseById(ctx context.Context, expenseID primitive.ObjectID) (*entity.Expenses, error) {
+	filter := bson.M{
+		"_id":        expenseID,
+		"is_deleted": false,
+	}
+	expense := &entity.Expenses{}
+	err := r.collection.FindOne(ctx, filter).Decode(expense)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return expense, nil
+}
+
+func (r *expenseRepositoryMongo) UpdateExpenseById(ctx context.Context, expenseID primitive.ObjectID, expense *entity.Expenses) error {
+	filter := bson.M{
+		"_id": expenseID,
+	}
+
+	update := bson.M{
+		"$set": expense,
+	}
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *expenseRepositoryMongo) GetExpensesByGroupID(ctx context.Context, groupID string) ([]*entity.Expenses, error) {
 	filter := bson.M{
-		"group_id": groupID,
+		"group_id":   groupID,
+		"is_deleted": false,
 	}
 
 	expenses := []*entity.Expenses{}
@@ -59,6 +93,7 @@ func (r *expenseRepositoryMongo) GetExpensesByGroupIDs(ctx context.Context, grou
 		"group_id": bson.M{
 			"$in": groupIDs,
 		},
+		"is_deleted": false,
 	}
 
 	expenses := []*entity.Expenses{}
