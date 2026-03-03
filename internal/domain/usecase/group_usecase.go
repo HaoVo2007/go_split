@@ -19,7 +19,7 @@ import (
 
 type GroupUseCase interface {
 	CreateGroup(ctx context.Context, req group.CreateGroupRequest) error
-	GetGroups(ctx context.Context) ([]*groupRes.GroupResponse, error)
+	GetGroups(ctx context.Context) (*groupRes.ListGroupResponse, error)
 	GetGroupById(ctx context.Context, id string) (*entity.Groups, error)
 	UpdateGroup(ctx context.Context, id string, req group.UpdateGroupRequest) error
 	DeleteGroup(ctx context.Context, id string) error
@@ -29,19 +29,25 @@ type GroupUseCase interface {
 }
 
 type groupUseCase struct {
-	groupRepository    repository.GroupRepository
-	userRepository     repository.UserRepository
-	cloudinaryUploader *helper.CloudinaryUploader
+	groupRepository        repository.GroupRepository
+	userRepository         repository.UserRepository
+	expenseRepository      repository.ExpenseRepository
+	expenseSplitRepository repository.ExpenseSplitRepository
+	cloudinaryUploader     *helper.CloudinaryUploader
 }
 
 func NewGroupUseCase(
 	groupRepository repository.GroupRepository,
 	userRepository repository.UserRepository,
+	expenseRepository repository.ExpenseRepository,
+	expenseSplitRepository repository.ExpenseSplitRepository,
 	cloudinaryUploader *helper.CloudinaryUploader,
 ) GroupUseCase {
 	return &groupUseCase{
 		groupRepository:    groupRepository,
 		userRepository:     userRepository,
+		expenseRepository:  expenseRepository,
+		expenseSplitRepository: expenseSplitRepository,
 		cloudinaryUploader: cloudinaryUploader,
 	}
 }
@@ -85,7 +91,7 @@ func (u *groupUseCase) CreateGroup(ctx context.Context, req group.CreateGroupReq
 	return u.groupRepository.CreateGroup(ctx, group)
 }
 
-func (u *groupUseCase) GetGroups(ctx context.Context) ([]*groupRes.GroupResponse, error) {
+func (u *groupUseCase) GetGroups(ctx context.Context) (*groupRes.ListGroupResponse, error) {
 	userID, err := helper.GetUserID(ctx)
 	if err != nil {
 		return nil, err
@@ -128,7 +134,42 @@ func (u *groupUseCase) GetGroups(ctx context.Context) ([]*groupRes.GroupResponse
 		responses[i] = groupMapper.ToGroupResponse(group, groupMembers)
 	}
 
-	return responses, nil
+	totalPaid := 0.0
+	totalOwed := 0.0
+
+	for _, group := range groups {
+		expenses, err := u.expenseRepository.GetExpensesByGroupID(ctx, group.ID.Hex())
+		if err != nil {
+			return nil, err
+		}
+		for _, expense := range expenses {
+			share := expense.Amount / float64(len(expense.PaidBy))
+			for _, paidByID := range expense.PaidBy {
+				if paidByID == userID {
+					totalPaid += share
+					break
+				}
+			}
+			splits, err := u.expenseSplitRepository.GetExpenseSplitsByExpenseID(ctx, expense.ID.Hex())
+			if err != nil {
+				return nil, err
+			}
+			for _, split := range splits {
+				if split.UserId == userID {
+					totalOwed += split.Amount
+				}
+			}
+		}
+	}
+
+	listResponse := &groupRes.ListGroupResponse{
+		TotalGroups: len(groups),
+		TotalPaid:   totalPaid,
+		TotalOwed:   totalOwed,
+		Groups:      responses,
+	}
+
+	return listResponse, nil
 }
 
 func (u *groupUseCase) GetGroupById(ctx context.Context, id string) (*entity.Groups, error) {
