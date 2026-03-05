@@ -163,7 +163,7 @@ func (u *userUseCase) VerifyPassword(userPassword string, providedPassword strin
 	msg := ""
 
 	if err != nil {
-		msg = "Login or password is incorrect"
+		msg = "Email or password is incorrect"
 		check = false
 	}
 	return check, msg
