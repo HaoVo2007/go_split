@@ -10,7 +10,9 @@ import (
 	"go-split/pkg/config"
 	"go-split/pkg/libs/helper"
 	"log"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -94,6 +96,16 @@ func (c *Container) initDatabase() error {
 
 func (c *Container) initRouter() {
 	c.Router = gin.Default()
+
+	// Configure CORS
+	c.Router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173"}, // Allow frontend dev servers
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Refresh-Token"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 }
 
 func (c *Container) setupRouter() {
