@@ -18,6 +18,7 @@ type ServerConfig struct {
 }
 
 type MongoDBConfig struct {
+	URL      string
 	Host     string
 	Port     string
 	User     string
@@ -37,11 +38,12 @@ func Load() (*Config, error) {
 			Host: getEnv("SERVER_HOST", "localhost"),
 		},
 		MongoDB: MongoDBConfig{
+			URL:      getEnv("MONGO_URL", "mongodb://localhost:27017"),
 			Host:     getEnv("MONGO_HOST", "localhost"),
 			User:     getEnv("MONGO_USER", ""),
 			Password: getEnv("MONGO_PASSWORD", ""),
 			Port:     getEnv("MONGO_PORT", "27017"),
-			DBName:   getEnv("MONGO_DB_NAME", "booking_service_db"),
+			DBName:   getEnv("MONGO_DB_NAME", "go_split_db"),
 		},
 		Cloudinary: CloudinaryConfig{
 			URL: getEnv("CLOUDINARY_URL", ""),

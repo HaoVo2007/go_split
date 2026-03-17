@@ -1,9 +1,9 @@
 package database
 
 import (
-	"go-split/pkg/config"
 	"context"
 	"fmt"
+	"go-split/pkg/config"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -17,6 +17,8 @@ func NewMongoConnection(config config.MongoDBConfig) (*mongo.Database, error) {
 	var uri string
 	if config.User != "" && config.Password != "" {
 		uri = fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Host, config.Port)
+	} else if config.URL != "" {
+		uri = config.URL
 	} else {
 		uri = fmt.Sprintf("mongodb://%s:%s", config.Host, config.Port)
 	}
