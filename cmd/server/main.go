@@ -1,9 +1,8 @@
 package main
 
 import (
-	"go-split/internal/app"
 	"context"
-	"fmt"
+	"go-split/internal/app"
 	"log"
 	"os"
 	"os/signal"
@@ -17,7 +16,12 @@ func main() {
 		log.Fatalf("Failed to initialize application: %v", err)
 	}
 
-	addr := fmt.Sprintf("%s:%s", container.Config.Server.Host, container.Config.Server.Port)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = container.Config.Server.Port 
+	}
+	addr := "0.0.0.0:" + port
+	
 	log.Printf("Server starting on %s", addr)
 
 	quit := make(chan os.Signal, 1)
@@ -34,7 +38,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	if err := container.MongoDB.Client().Disconnect(ctx); err != nil {
 		log.Printf("Error disconnecting MongoDB: %v", err)
 	}
