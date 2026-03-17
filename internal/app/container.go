@@ -99,7 +99,10 @@ func (c *Container) initRouter() {
 
 	// Configure CORS
 	c.Router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"}, // Allow frontend dev servers
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"https://react-split.vercel.app",
+		}, 
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Refresh-Token"},
 		ExposeHeaders:    []string{"Content-Length"},
