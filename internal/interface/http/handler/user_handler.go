@@ -3,6 +3,7 @@ package handler
 import (
 	"go-split/internal/domain/usecase"
 	"go-split/internal/interface/http/dto/request/user"
+	"go-split/pkg/libs/helper"
 	"go-split/pkg/libs/response"
 	"go-split/pkg/libs/validator"
 
@@ -95,7 +96,23 @@ func (h *UserHandler) Logout(c *gin.Context) {
 	response.Success(c, "logout successfully", nil)
 }
 
-func (h *UserHandler) UpdateProfile(c *gin.Context) {
+func (h *UserHandler) GetCurrentUser(c *gin.Context) {
+	userID, err := helper.GetUserID(c.Request.Context())
+	if err != nil {
+		response.InternalServerError(c, err)
+		return
+	}
+
+	user, err := h.userUseCase.GetUserById(c.Request.Context(), userID)
+	if err != nil {
+		response.InternalServerError(c, err)
+		return
+	}
+
+	response.Success(c, "get current user successfully", user)
+}
+
+func (h *UserHandler) 	UpdateProfile(c *gin.Context) {
 	var req user.UpdateProfileRequest
 	if err := c.ShouldBind(&req); err != nil {
 		response.BadRequestSimple(c, "invalid JSON")

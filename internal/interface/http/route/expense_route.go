@@ -14,7 +14,7 @@ func SetupExpenseRoutes(
 	expenseRouter := router.Group("api/v1/expenses")
 	expenseRouter.Use(middleware.AuthMiddleware())
 	{
-		expenseRouter.POST("/", expenseHandler.CreateExpense)
+		expenseRouter.POST("", expenseHandler.CreateExpense)
 		expenseRouter.GET("/:id", expenseHandler.GetExpenseById)
 		expenseRouter.PUT("/:id", expenseHandler.UpdateExpenseById)
 		expenseRouter.DELETE("/:id", expenseHandler.DeleteExpenseById)

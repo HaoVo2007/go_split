@@ -241,6 +241,33 @@ func (e *expenseUseCase) UpdateExpenseById(ctx context.Context, expenseID string
 		expense.PaidBy = req.PaidBy
 	}
 
+	if len(req.Participants) > 0 {
+		err = e.expenseSplitRepository.DeleteExpenseSplitsByExpenseID(ctx, expenseID)
+		if err != nil {
+			return err
+		}
+
+		share := req.Amount / float64(len(req.Participants))
+		expenseSplits := make([]entity.ExpenseSplits, len(req.Participants))
+		for i, participant := range req.Participants {
+			expenseSplits[i] = entity.ExpenseSplits{
+				ID:         primitive.NewObjectID(),
+				ExpensesID: expenseIDObject.Hex(),
+				UserId:     participant,
+				Amount:     share,
+				CreatedAt:  time.Now(),
+				UpdatedAt:  time.Now(),
+			}
+		}
+
+		err = e.expenseSplitRepository.CreateExpenseSplits(ctx, expenseSplits)
+		if err != nil {
+			return err
+		}
+
+		expense.Participants = req.Participants
+	}
+
 	expense.UpdatedAt = time.Now()
 
 	return e.expenseRepository.UpdateExpenseById(ctx, expenseIDObject, expense)
@@ -271,7 +298,17 @@ func (e *expenseUseCase) DeleteExpenseById(ctx context.Context, expenseID string
 	expense.DeletedAt = &deletedAt
 	expense.UpdatedAt = time.Now()
 
-	return e.expenseRepository.UpdateExpenseById(ctx, expenseIDObject, expense)
+	err = e.expenseRepository.UpdateExpenseById(ctx, expenseIDObject, expense)
+	if err != nil {
+		return err
+	}
+
+	err = e.expenseSplitRepository.DeleteExpenseSplitsByExpenseID(ctx, expenseID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (e *expenseUseCase) GetSettlementByExpenseID(ctx context.Context, expenseID string) (*expenseRes.SettlementResponse, error) {
@@ -430,8 +467,8 @@ func (e *expenseUseCase) GetSettlementByExpenseID(ctx context.Context, expenseID
 		fromUser := userMapper.ToUserResponse(userMap[creditor.UserID])
 		toUser := userMapper.ToUserResponse(userMap[debtor.UserID])
 		settlements = append(settlements, &expenseRes.Settlement{
-			FromUser: *fromUser,
-			ToUser:   *toUser,
+			FromUser: *toUser,
+			ToUser:   *fromUser,
 			Amount:   amount,
 		})
 
@@ -677,8 +714,8 @@ func (e *expenseUseCase) GetBalanceByGroupID(ctx context.Context, groupID string
 		toUser := userMapper.ToUserResponse(userMap[debtor.UserID])
 
 		settlements = append(settlements, &expenseRes.Settlement{
-			FromUser: *fromUser,
-			ToUser:   *toUser,
+			FromUser: *toUser,
+			ToUser:   *fromUser,
 			Amount:   amount,
 		})
 

@@ -14,9 +14,10 @@ func SetupGroupRoutes(
 	groupRouter := router.Group("api/v1/groups")
 	groupRouter.Use(middleware.AuthMiddleware())
 	{
-		groupRouter.POST("/", groupHandler.CreateGroup)
-		groupRouter.GET("/", groupHandler.GetGroups)
+		groupRouter.POST("", groupHandler.CreateGroup)
+		groupRouter.GET("", groupHandler.GetGroups)
 		groupRouter.GET("/:id", groupHandler.GetGroupById)
+		groupRouter.GET("/:id/members", groupHandler.GetGroupMembers)
 		groupRouter.PUT("/:id", groupHandler.UpdateGroup)
 		groupRouter.DELETE("/:id", groupHandler.DeleteGroup)
 		

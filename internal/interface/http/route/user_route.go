@@ -20,6 +20,7 @@ func SetupUserRoutes(
 		authRouter.POST("/register", userHandler.Register)
 		authRouter.POST("/refresh-token", userHandler.RefreshToken)
 		authRouter.POST("/logout", middleware.AuthMiddleware(), userHandler.Logout)
+		authRouter.GET("/current-user", middleware.AuthMiddleware(), userHandler.GetCurrentUser)
 		authRouter.POST("/update-profile", middleware.AuthMiddleware(), userHandler.UpdateProfile)
 	}
 

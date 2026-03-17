@@ -62,6 +62,16 @@ func (h *GroupHandler) GetGroupById(c *gin.Context) {
 	response.Success(c, "group fetched successfully", group)
 }
 
+func (h *GroupHandler) GetGroupMembers(c *gin.Context) {
+	id := c.Param("id")
+	members, err := h.groupUseCase.GetGroupMembers(c.Request.Context(), id)
+	if err != nil {
+		response.InternalServerError(c, err)
+		return
+	}
+	response.Success(c, "group members fetched successfully", members)
+}
+
 func (h *GroupHandler) UpdateGroup(c *gin.Context) {
 	id := c.Param("id")
 	var req group.UpdateGroupRequest

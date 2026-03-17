@@ -38,4 +38,5 @@ type ExpenseSplitRepository interface {
 	CreateExpenseSplits(ctx context.Context, expenseSplits []entity.ExpenseSplits) error
 	GetExpenseSplitsByExpenseIDs(ctx context.Context, expenseIDs []string) ([]*entity.ExpenseSplits, error)
 	GetExpenseSplitsByExpenseID(ctx context.Context, expenseID string) ([]*entity.ExpenseSplits, error)
+	DeleteExpenseSplitsByExpenseID(ctx context.Context, expenseID string) error
 }

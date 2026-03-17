@@ -21,6 +21,7 @@ type GroupUseCase interface {
 	CreateGroup(ctx context.Context, req group.CreateGroupRequest) error
 	GetGroups(ctx context.Context) (*groupRes.ListGroupResponse, error)
 	GetGroupById(ctx context.Context, id string) (*entity.Groups, error)
+	GetGroupMembers(ctx context.Context, id string) ([]*entity.Users, error)
 	UpdateGroup(ctx context.Context, id string, req group.UpdateGroupRequest) error
 	DeleteGroup(ctx context.Context, id string) error
 
@@ -182,6 +183,38 @@ func (u *groupUseCase) GetGroupById(ctx context.Context, id string) (*entity.Gro
 		return nil, err
 	}
 	return group, nil
+}
+
+func (u *groupUseCase) GetGroupMembers(ctx context.Context, id string) ([]*entity.Users, error) {
+	groupID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	group, err := u.groupRepository.GetGroupById(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	userIDs := []primitive.ObjectID{}
+	for _, memberID := range group.Members {
+		userID, err := primitive.ObjectIDFromHex(memberID)
+		if err != nil {
+			return nil, err
+		}
+		userIDs = append(userIDs, userID)
+	}
+
+	createdByID, err := primitive.ObjectIDFromHex(group.CreatedBy)
+	if err != nil {
+		return nil, err
+	}
+
+	userIDs = append(userIDs, createdByID)
+	
+	users, err := u.userRepository.GetUsersByIDs(ctx, userIDs)
+
+	return users, nil
 }
 
 func (u *groupUseCase) UpdateGroup(ctx context.Context, id string, req group.UpdateGroupRequest) error {

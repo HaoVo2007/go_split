@@ -90,3 +90,15 @@ func (r *expenseSplitRepository) GetExpenseSplitsByExpenseIDs(ctx context.Contex
 	return splits, nil
 
 }
+
+func (r *expenseSplitRepository) DeleteExpenseSplitsByExpenseID(ctx context.Context, expenseID string) error {
+	filter := bson.M{
+		"expenses_id": expenseID,
+	}
+
+	_, err := r.collection.DeleteMany(ctx, filter)
+	if err != nil {
+		return err
+	}
+	return nil
+}
