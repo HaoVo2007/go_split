@@ -7,18 +7,19 @@ import (
 
 func ToUserResponse(user *entity.Users) *userRes.UserResponse {
 	if user.Profile == nil {
+		name := user.Email
 		return &userRes.UserResponse{
 			ID:      user.ID.Hex(),
 			Email:   user.Email,
 			Role:    user.Role,
-			Name:    nil,
+			Name:    &name,
 			Image:   nil,
 			Address: nil,
 			Phone:   nil,
 		}
 	}
 
-	name := ""
+	name := user.Email
 	if user.Profile.Name != nil {
 		name = *user.Profile.Name
 	}

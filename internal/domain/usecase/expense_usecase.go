@@ -95,6 +95,27 @@ func (e *expenseUseCase) CreateExpense(ctx context.Context, req expense.CreateEx
 		return err
 	}
 
+	if len(req.PaidBy) == 0 {
+		return errors.New("paid by is required")
+	}
+	
+	if len(req.Participants) == 0 {
+		return errors.New("participants is required")
+	}
+
+	for _, paidBy := range req.PaidBy {
+		found := false
+		for _, participant := range req.Participants {
+			if participant == paidBy {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.New("paid by is not in the participants list")
+		}
+	}
+
 	expenseID := primitive.NewObjectID()
 	expense := entity.Expenses{
 		ID:            expenseID,
@@ -242,6 +263,19 @@ func (e *expenseUseCase) UpdateExpenseById(ctx context.Context, expenseID string
 	}
 
 	if len(req.Participants) > 0 {
+		for _, participant := range req.Participants {
+			found := false
+			for _, paidBy := range expense.PaidBy {
+				if participant == paidBy {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return errors.New("participant is not in the paid by list")
+			}
+		}
+	
 		err = e.expenseSplitRepository.DeleteExpenseSplitsByExpenseID(ctx, expenseID)
 		if err != nil {
 			return err

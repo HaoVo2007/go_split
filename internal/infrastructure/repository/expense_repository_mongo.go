@@ -8,6 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type expenseRepositoryMongo struct {
@@ -67,7 +68,8 @@ func (r *expenseRepositoryMongo) GetExpensesByGroupID(ctx context.Context, group
 	}
 
 	expenses := []*entity.Expenses{}
-	cursor, err := r.collection.Find(ctx, filter)
+	options := options.Find().SetSort(bson.M{"created_at": -1})
+	cursor, err := r.collection.Find(ctx, filter, options)
 	if err != nil {
 		return nil, err
 	}
