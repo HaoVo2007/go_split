@@ -22,6 +22,7 @@ func SetupUserRoutes(
 		authRouter.POST("/logout", middleware.AuthMiddleware(), userHandler.Logout)
 		authRouter.GET("/current-user", middleware.AuthMiddleware(), userHandler.GetCurrentUser)
 		authRouter.POST("/update-profile", middleware.AuthMiddleware(), userHandler.UpdateProfile)
+		authRouter.GET("/dashboard/summary", middleware.AuthMiddleware(), userHandler.GetDashboardSummary)
 	}
 
 	// admin

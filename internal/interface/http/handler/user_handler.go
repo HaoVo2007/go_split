@@ -222,3 +222,12 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 		"refresh_token": refreshToken,
 	})
 }
+
+func (h *UserHandler) GetDashboardSummary(c *gin.Context) {
+	dashboardSummary, err := h.userUseCase.GetDashboardSummary(c.Request.Context())
+	if err != nil {
+		response.InternalServerError(c, err)
+		return
+	}
+	response.Success(c, "get dashboard summary successfully", dashboardSummary)
+}

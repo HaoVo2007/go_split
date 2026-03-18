@@ -13,6 +13,8 @@ import (
 	"os"
 	"time"
 
+	userRes "go-split/internal/interface/http/dto/response/user"
+
 	"github.com/golang-jwt/jwt/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -30,19 +32,29 @@ type UserUseCase interface {
 	UpdateUser(ctx context.Context, userID string, req user.UpdateUserRequest) error
 	SoftDeleteUser(ctx context.Context, userID string) error
 	RefreshToken(ctx context.Context, refreshToken string) (string, string, error)
+	GetDashboardSummary(ctx context.Context) (*userRes.DashboardSummaryResponse, error)
 }
 
 type userUseCase struct {
 	userRepository     repository.UserRepository
+	groupRepository    repository.GroupRepository
+	expenseRepository  repository.ExpenseRepository
+	splitRepository    repository.ExpenseSplitRepository
 	cloudinaryUploader *helper.CloudinaryUploader
 }
 
 func NewUserUseCase(
 	userRepository repository.UserRepository,
+	groupRepository repository.GroupRepository,
+	expenseRepository repository.ExpenseRepository,
+	splitRepository repository.ExpenseSplitRepository,
 	cloudinaryUploader *helper.CloudinaryUploader,
 ) UserUseCase {
 	return &userUseCase{
 		userRepository:     userRepository,
+		groupRepository:    groupRepository,
+		expenseRepository:  expenseRepository,
+		splitRepository:    splitRepository,
 		cloudinaryUploader: cloudinaryUploader,
 	}
 }
@@ -444,4 +456,230 @@ func (u *userUseCase) RefreshToken(ctx context.Context, refreshToken string) (st
 	}
 
 	return accessToken, refreshToken, nil
+}
+
+func (u *userUseCase) GetDashboardSummary(ctx context.Context) (*userRes.DashboardSummaryResponse, error) {
+	userID, err := helper.GetUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := u.userRepository.FindUserByID(ctx, objectID)
+	if err != nil {
+		return nil, err
+	}
+
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	groups, err := u.groupRepository.GetGroups(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(groups) == 0 {
+		return &userRes.DashboardSummaryResponse{
+			Balance: userRes.BalanceResponse{
+				YouOwed: 0,
+				YouPaid: 0,
+				Balance: 0,
+			},
+			Overview: userRes.OverviewResponse{
+				TotalGroups:       0,
+				TotalTransactions: 0,
+				TotalFriends:      0,
+			},
+			Expenses: userRes.ExpensesResponse{
+				TotalPaid:   0,
+				TotalShared: 0,
+			},
+			TopStatistics: userRes.TopStatisticsResponse{
+				TopGroup:  userRes.TopGroupResponse{},
+				TopFriend: userRes.TopFriendResponse{},
+			},
+		}, nil
+	}
+
+	groupIDs := []string{}
+	for _, group := range groups {
+		groupIDs = append(groupIDs, group.ID.Hex())
+	}
+
+	expenses, err := u.expenseRepository.GetExpensesByGroupIDs(ctx, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(expenses) == 0 {
+		return &userRes.DashboardSummaryResponse{
+			Balance: userRes.BalanceResponse{
+				YouOwed: 0,
+				YouPaid: 0,
+				Balance: 0,
+			},
+			Overview: userRes.OverviewResponse{
+				TotalGroups:       len(groups),
+				TotalTransactions: 0,
+				TotalFriends:      0,
+			},
+			Expenses: userRes.ExpensesResponse{
+				TotalPaid:   0,
+				TotalShared: 0,
+			},
+			TopStatistics: userRes.TopStatisticsResponse{
+				TopGroup:  userRes.TopGroupResponse{},
+				TopFriend: userRes.TopFriendResponse{},
+			},
+		}, nil
+	}
+
+	expenseIDs := []string{}
+	for _, expense := range expenses {
+		expenseIDs = append(expenseIDs, expense.ID.Hex())
+	}
+
+	splits, err := u.splitRepository.GetExpenseSplitsByExpenseIDs(ctx, expenseIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalPaid float64
+	var totalShared float64
+
+	for _, expense := range expenses {
+		for _, paidByID := range expense.PaidBy {
+			if paidByID == userID {
+				totalPaid += expense.Amount
+			}
+		}
+	}
+
+	for _, split := range splits {
+		if split.UserId == userID {
+			totalShared += split.Amount
+		}
+	}
+
+	youPaid := totalPaid
+	youOwed := totalShared
+	
+	balance := youPaid - youOwed
+
+	overview := userRes.OverviewResponse{
+		TotalGroups:       len(groups),
+		TotalTransactions: len(expenses),
+		TotalFriends:      countUniqueFriends(groups, userID),
+	}
+
+	groupMap := make(map[string]float64)
+	for _, expense := range expenses {
+		groupMap[expense.GroupID] += expense.Amount
+	}
+
+	var toGroupID string
+	var max float64
+	for gid, amount := range groupMap {
+		if amount > max {
+			max = amount
+			toGroupID = gid
+		}
+	}
+
+	groupID, err := primitive.ObjectIDFromHex(toGroupID)
+	if err != nil {
+		return nil, err
+	}
+	groupDetail, err := u.groupRepository.GetGroupById(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+	if groupDetail == nil {
+		return nil, errors.New("group not found")
+	}
+	
+	topGroup := userRes.TopGroupResponse{
+		ID: groupDetail.ID.Hex(),
+		Name: groupDetail.Name,
+		TotalSpend: max,
+	}
+
+	friendMap := make(map[string]int)
+	for _, expense := range expenses {
+		for _, p := range expense.Participants {
+			if p != userID {
+				friendMap[p]++
+			}
+		}
+	}
+
+	var topFriendID string
+	var maxFriend int
+	for fid, count := range friendMap {
+		if count > maxFriend {
+			maxFriend = count
+			topFriendID = fid
+		}
+	}
+
+	friendID, err := primitive.ObjectIDFromHex(topFriendID)
+	if err != nil {
+		return nil, err
+	}
+
+	friendDetail, err := u.userRepository.FindUserByID(ctx, friendID)
+	if err != nil {
+		return nil, err
+	}
+
+	if friendDetail == nil {
+		return nil, errors.New("friend not found")
+	}
+	
+	var friendName string
+	if friendDetail.Profile != nil && friendDetail.Profile.Name != nil {
+		friendName = *friendDetail.Profile.Name
+	} else {
+		friendName = friendDetail.Email
+	}
+
+	topFriend := userRes.TopFriendResponse{
+		ID: friendDetail.ID.Hex(),
+		Name: friendName,
+		TotalTransactions: float64(maxFriend),
+	}
+
+	return &userRes.DashboardSummaryResponse{
+		Balance: userRes.BalanceResponse{
+			YouOwed: youOwed,
+			YouPaid: youPaid,
+			Balance: balance,
+		},
+		Overview: overview,
+		Expenses: userRes.ExpensesResponse{
+			TotalPaid: totalPaid,
+			TotalShared: totalShared,
+		},
+		TopStatistics: userRes.TopStatisticsResponse{
+			TopGroup: topGroup,
+			TopFriend: topFriend,
+		},
+	}, nil
+}
+
+func countUniqueFriends(groups []*entity.Groups, userID string) int {
+	friendIDs := make(map[string]bool)
+	for _, group := range groups {
+		for _, memberID := range group.Members {
+			if memberID != userID {
+				friendIDs[memberID] = true
+			}
+		}
+	}
+	return len(friendIDs)
 }

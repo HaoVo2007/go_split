@@ -123,7 +123,7 @@ func (c *Container) initRepositories() {
 }
 
 func (c *Container) initUseCases() {
-	c.UseCase.UserUseCase = usecase.NewUserUseCase(c.Repository.UserRepository, c.CloudinaryUploader)
+	c.UseCase.UserUseCase = usecase.NewUserUseCase(c.Repository.UserRepository, c.Repository.GroupRepository, c.Repository.ExpenseRepository, c.Repository.ExpenseSplitRepository, c.CloudinaryUploader)
 	c.UseCase.GroupUseCase = usecase.NewGroupUseCase(c.Repository.GroupRepository, c.Repository.UserRepository, c.Repository.ExpenseRepository, c.Repository.ExpenseSplitRepository, c.CloudinaryUploader)
 	c.UseCase.ExpenseUseCase = usecase.NewExpenseUseCase(c.Repository.ExpenseRepository, c.Repository.ExpenseSplitRepository, c.Repository.GroupRepository, c.Repository.UserRepository, c.CloudinaryUploader)
 }
