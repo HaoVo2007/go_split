@@ -112,7 +112,7 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 	response.Success(c, "get current user successfully", user)
 }
 
-func (h *UserHandler) 	UpdateProfile(c *gin.Context) {
+func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	var req user.UpdateProfileRequest
 	if err := c.ShouldBind(&req); err != nil {
 		response.BadRequestSimple(c, "invalid JSON")

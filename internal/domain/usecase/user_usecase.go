@@ -267,19 +267,31 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, req user.UpdateProfileR
 		userCheck.Profile.Name = &req.Name
 	}
 
-	if req.Image != nil {
+	if req.ImageType == "preset" {
 		if userCheck.Profile.ImagePublicID != nil {
 			u.cloudinaryUploader.DeleteImage(ctx, *userCheck.Profile.ImagePublicID)
 		}
+
+		userCheck.Profile.Image = &req.ImageUrl
+		userCheck.Profile.ImagePublicID = nil
+	}
+
+	if req.ImageType == "upload" && req.Image != nil {
+		if userCheck.Profile.ImagePublicID != nil {
+			u.cloudinaryUploader.DeleteImage(ctx, *userCheck.Profile.ImagePublicID)
+		}
+
 		tempPath := fmt.Sprintf("temp_%s", req.Image.Filename)
 		if err := helper.SaveUploadedFile(req.Image, tempPath); err != nil {
 			return err
 		}
 		defer os.Remove(tempPath)
+
 		image, publicID, err := u.cloudinaryUploader.UploadImage(ctx, tempPath, "users")
 		if err != nil {
 			return err
 		}
+
 		userCheck.Profile.Image = &image
 		userCheck.Profile.ImagePublicID = &publicID
 	}
