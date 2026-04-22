@@ -11,9 +11,11 @@ func SetupRouter(
 	router *gin.Engine,
 	userHandler *handler.UserHandler,
 	groupHandler *handler.GroupHandler,
+	messageHandler *handler.MessageHandler,
 	expenseHandler *handler.ExpenseHandler,
 ) {
 	route.SetupUserRoutes(router, userHandler)
 	route.SetupGroupRoutes(router, groupHandler)
 	route.SetupExpenseRoutes(router, expenseHandler)
+	route.SetupMessageRoutes(router, messageHandler)
 }

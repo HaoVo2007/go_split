@@ -40,3 +40,8 @@ type ExpenseSplitRepository interface {
 	GetExpenseSplitsByExpenseID(ctx context.Context, expenseID string) ([]*entity.ExpenseSplits, error)
 	DeleteExpenseSplitsByExpenseID(ctx context.Context, expenseID string) error
 }
+
+type MessageRepository interface {
+	CreateMessage(ctx context.Context, message entity.Messages) error
+	GetMessagesByGroupID(ctx context.Context, groupID string, pageSize int, pageIndex int) ([]*entity.Messages, error)
+}

@@ -7,6 +7,9 @@ import (
 	infrastructureRepository "go-split/internal/infrastructure/repository"
 	"go-split/internal/interface/http"
 	"go-split/internal/interface/http/handler"
+	"go-split/internal/interface/websocket"
+	websocketHandler "go-split/internal/interface/websocket/handler"
+	"go-split/internal/interface/websocket/hub"
 	"go-split/pkg/config"
 	"go-split/pkg/libs/helper"
 	"log"
@@ -25,6 +28,7 @@ type Container struct {
 	Repository         *Repository
 	UseCase            *UseCase
 	Handler            *Handler
+	Hub                *hub.Hub
 }
 
 type Repository struct {
@@ -32,18 +36,22 @@ type Repository struct {
 	GroupRepository        repository.GroupRepository
 	ExpenseRepository      repository.ExpenseRepository
 	ExpenseSplitRepository repository.ExpenseSplitRepository
+	MessageRepository      repository.MessageRepository
 }
 
 type UseCase struct {
 	UserUseCase    usecase.UserUseCase
 	GroupUseCase   usecase.GroupUseCase
 	ExpenseUseCase usecase.ExpenseUseCase
+	MessageUseCase usecase.MessageUseCase
 }
 
 type Handler struct {
 	UserHandler    *handler.UserHandler
 	GroupHandler   *handler.GroupHandler
 	ExpenseHandler *handler.ExpenseHandler
+	MessageHandler *handler.MessageHandler
+	ChatHandler    *websocketHandler.ChatHandler
 }
 
 func NewContainer() (*Container, error) {
@@ -57,9 +65,12 @@ func NewContainer() (*Container, error) {
 		return nil, err
 	}
 
+	hub := hub.NewHub()
+
 	c := &Container{
 		Config:             cfg,
 		CloudinaryUploader: cloudinaryUploader,
+		Hub:                hub,
 		Repository:         &Repository{},
 		UseCase:            &UseCase{},
 		Handler:            &Handler{},
@@ -78,6 +89,8 @@ func NewContainer() (*Container, error) {
 	c.initHandlers()
 
 	c.setupRouter()
+
+	go c.Hub.Run()
 
 	return c, nil
 }
@@ -102,7 +115,7 @@ func (c *Container) initRouter() {
 		AllowOrigins: []string{
 			"http://localhost:5173",
 			"https://react-split.vercel.app",
-		}, 
+		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Refresh-Token"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -112,7 +125,8 @@ func (c *Container) initRouter() {
 }
 
 func (c *Container) setupRouter() {
-	http.SetupRouter(c.Router, c.Handler.UserHandler, c.Handler.GroupHandler, c.Handler.ExpenseHandler)
+	http.SetupRouter(c.Router, c.Handler.UserHandler, c.Handler.GroupHandler, c.Handler.MessageHandler, c.Handler.ExpenseHandler)
+	websocket.SetupRouter(c.Router, c.Handler.ChatHandler)
 }
 
 func (c *Container) initRepositories() {
@@ -120,16 +134,20 @@ func (c *Container) initRepositories() {
 	c.Repository.GroupRepository = infrastructureRepository.NewGroupRepositoryMongo(c.MongoDB.Collection("groups"))
 	c.Repository.ExpenseRepository = infrastructureRepository.NewExpenseRepositoryMongo(c.MongoDB.Collection("expenses"))
 	c.Repository.ExpenseSplitRepository = infrastructureRepository.NewExpenseSplitRepository(c.MongoDB.Collection("expense_splits"))
+	c.Repository.MessageRepository = infrastructureRepository.NewMessageRepositoryMongo(c.MongoDB.Collection("messages"))
 }
 
 func (c *Container) initUseCases() {
 	c.UseCase.UserUseCase = usecase.NewUserUseCase(c.Repository.UserRepository, c.Repository.GroupRepository, c.Repository.ExpenseRepository, c.Repository.ExpenseSplitRepository, c.CloudinaryUploader)
 	c.UseCase.GroupUseCase = usecase.NewGroupUseCase(c.Repository.GroupRepository, c.Repository.UserRepository, c.Repository.ExpenseRepository, c.Repository.ExpenseSplitRepository, c.CloudinaryUploader)
 	c.UseCase.ExpenseUseCase = usecase.NewExpenseUseCase(c.Repository.ExpenseRepository, c.Repository.ExpenseSplitRepository, c.Repository.GroupRepository, c.Repository.UserRepository, c.CloudinaryUploader)
+	c.UseCase.MessageUseCase = usecase.NewMessageUseCase(c.Repository.MessageRepository, c.Repository.UserRepository)
 }
 
 func (c *Container) initHandlers() {
 	c.Handler.UserHandler = handler.NewUserHandler(c.UseCase.UserUseCase)
 	c.Handler.GroupHandler = handler.NewGroupHandler(c.UseCase.GroupUseCase)
 	c.Handler.ExpenseHandler = handler.NewExpenseHandler(c.UseCase.ExpenseUseCase)
+	c.Handler.MessageHandler = handler.NewMessageHandler(c.UseCase.MessageUseCase)
+	c.Handler.ChatHandler = websocketHandler.NewChatHandler(c.Hub, c.Repository.GroupRepository, c.Repository.MessageRepository)
 }

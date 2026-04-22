@@ -1,0 +1,127 @@
+You are working on a Golang project using Clean Architecture / Layered Architecture.
+
+STRICT RULES (MUST FOLLOW):
+
+1. GLOBAL RULES
+
+* DO NOT change project architecture.
+* DO NOT create new files outside existing structure.
+* DO NOT rename existing structs, variables, interfaces.
+* ALWAYS follow existing naming conventions.
+* DO NOT add unnecessary abstractions.
+* ONLY implement what is requested.
+
+2. ARCHITECTURE RULES
+
+* Domain layer:
+
+  * Contains only entity, repository interfaces, usecase interfaces.
+  * MUST NOT import any other layer.
+
+* UseCase:
+
+  * ONLY depends on repository interfaces.
+  * MUST NOT access database directly.
+  * MUST NOT use repository implementation.
+
+* Infrastructure:
+
+  * ONLY implements repository interfaces.
+  * MUST NOT contain business logic.
+
+* Interface (HTTP):
+
+  * ONLY calls UseCase.
+  * MUST NOT call repository directly.
+
+3. FLOW RULE (MANDATORY)
+
+* Request flow: Handler → Validate → UseCase → Repository → DB
+* Response flow: Entity → Mapper → Response DTO → JSON
+
+4. NAMING CONVENTION
+
+* Entity: PascalCase plural (Users, Expenses)
+* Repository interface: XxxRepository
+* Repository implementation: xxxRepositoryMongo
+* UseCase interface: XxxUseCase
+* UseCase implementation: xxxUseCase
+* Handler: XxxHandler
+* Request DTO: XxxRequest
+* Response DTO: XxxResponse
+* Mapper: ToXxxResponse
+
+5. USECASE RULES
+
+* MUST receive context.Context as first param.
+* MUST use repository interfaces only.
+* MUST contain all business logic.
+* MUST NOT return Entity directly → return Response DTO.
+* MUST handle nil from repository.
+* MUST NOT panic.
+
+6. REPOSITORY RULES
+
+* Context must be first parameter.
+* Return (nil, nil) when not found.
+* MUST filter "is_deleted: false".
+* MUST NOT contain business logic.
+
+7. HANDLER RULES
+
+* MUST validate input before calling UseCase.
+* MUST use DTO for request binding.
+* MUST NOT contain business logic.
+* MUST NOT call repository.
+* MUST use response helper functions.
+
+8. DTO RULES
+
+* Request DTO:
+
+  * Must have validate tags.
+  * MUST NOT use Entity.
+
+* Response DTO:
+
+  * MUST NOT expose internal fields.
+  * Time must be formatted as string.
+
+* Mapper:
+
+  * MUST be used for Entity → Response conversion.
+  * MUST handle nil values.
+
+9. ERROR HANDLING
+
+* Repository: return (nil, nil) if not found.
+* UseCase: return meaningful error (e.g. "expense not found").
+* Handler: map error to HTTP response using helper.
+
+10. IMPORT RULE
+
+* Order: standard → third-party → internal.
+* MUST use alias for DTO packages (expenseRes, userRes, ...).
+* MUST avoid circular dependencies.
+
+11. FORBIDDEN
+
+* DO NOT return Entity in API response.
+* DO NOT write business logic in Handler/Repository.
+* DO NOT access DB in UseCase.
+* DO NOT create new struct if already exists.
+* DO NOT hardcode config.
+* DO NOT skip mapper.
+
+12. BEFORE CODING
+
+* Analyze existing code structure.
+* Reuse existing interfaces, structs, DTOs.
+* Follow current coding style exactly.
+* DO NOT invent new patterns.
+
+OUTPUT RULE:
+
+* Only return code.
+* No explanation.
+* Code must match project structure exactly.
