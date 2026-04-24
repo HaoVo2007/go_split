@@ -1,16 +1,32 @@
 package event
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 type MessageEvent struct {
-	GroupID string `json:"group_id"`
-	Message string `json:"message"`
+	TypeMessage string    `json:"type_message"`
+	GroupID     string    `json:"group_id"`
+	Message     string    `json:"message"`
+	SenderID    string    `json:"sender_id"`
+	SenderName  string    `json:"sender_name"`
+	Avatar      string    `json:"avatar"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type PresenceEvent struct {
-	GroupID string `json:"group_id"`
-	Count   int    `json:"count"`
-	Type    string `json:"type"`
+	TypeMessage string          `json:"type_message"`
+	GroupID     string          `json:"group_id"`
+	Count       int             `json:"count"`
+	Type        string          `json:"type"`
+	Users       []*PresenceUser `json:"users"`
+}
+
+type PresenceUser struct {
+	UserID string `json:"user_id"`
+	Name   string `json:"name"`
+	Avatar string `json:"avatar"`
 }
 
 func (m *MessageEvent) ToJSON() []byte {

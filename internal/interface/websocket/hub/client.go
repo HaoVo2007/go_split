@@ -29,8 +29,8 @@ type Client struct {
 	Conn              *websocket.Conn
 	Send              chan []byte
 	GroupIds          map[string]bool
-	UserID            string
 	MessageRepository repository.MessageRepository
+	User              *entity.Users
 }
 
 func (c *Client) ReadPump() {
@@ -51,10 +51,32 @@ func (c *Client) ReadPump() {
 		}
 
 		var msg event.MessageEvent
+
+		msg.SenderID = c.User.ID.Hex()
+
+		var senderName string
+		if c.User.Profile != nil && c.User.Profile.Name != nil {
+			senderName = *c.User.Profile.Name
+		} else {
+			senderName = c.User.Email
+		}
+
+		var senderAvatar string
+		if c.User.Profile != nil && c.User.Profile.Image != nil {
+			senderAvatar = *c.User.Profile.Image
+		} else {
+			senderAvatar = ""
+		}
+
 		if err := json.Unmarshal(data, &msg); err != nil {
 			log.Printf("error: %v", err)
 			break
 		}
+
+		msg.SenderName = senderName
+		msg.Avatar = senderAvatar
+		msg.TypeMessage = "message"
+		
 
 		if !c.GroupIds[msg.GroupID] {
 			log.Println("User send message to group not in list of groups")
@@ -65,7 +87,7 @@ func (c *Client) ReadPump() {
 			ID:        primitive.NewObjectID(),
 			GroupID:   msg.GroupID,
 			Message:   msg.Message,
-			UserID:    c.UserID,
+			UserID:    c.User.ID.Hex(),
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}

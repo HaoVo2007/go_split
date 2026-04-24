@@ -149,5 +149,5 @@ func (c *Container) initHandlers() {
 	c.Handler.GroupHandler = handler.NewGroupHandler(c.UseCase.GroupUseCase)
 	c.Handler.ExpenseHandler = handler.NewExpenseHandler(c.UseCase.ExpenseUseCase)
 	c.Handler.MessageHandler = handler.NewMessageHandler(c.UseCase.MessageUseCase)
-	c.Handler.ChatHandler = websocketHandler.NewChatHandler(c.Hub, c.Repository.GroupRepository, c.Repository.MessageRepository)
+	c.Handler.ChatHandler = websocketHandler.NewChatHandler(c.Hub, c.Repository.GroupRepository, c.Repository.MessageRepository, c.Repository.UserRepository)
 }

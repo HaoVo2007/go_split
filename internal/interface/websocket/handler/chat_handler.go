@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var upgrader = websocket.Upgrader{
@@ -21,17 +22,20 @@ type ChatHandler struct {
 	hub     *hub.Hub
 	group   repository.GroupRepository
 	message repository.MessageRepository
+	user    repository.UserRepository
 }
 
 func NewChatHandler(
 	hub *hub.Hub,
 	group repository.GroupRepository,
 	message repository.MessageRepository,
+	user repository.UserRepository,
 ) *ChatHandler {
 	return &ChatHandler{
 		hub:     hub,
 		group:   group,
 		message: message,
+		user:    user,
 	}
 }
 
@@ -68,13 +72,27 @@ func (h *ChatHandler) HandleConnection(c *gin.Context) {
 		return
 	}
 
+	objectID, err := primitive.ObjectIDFromHex(validatedUserID)
+	if err != nil {
+		log.Printf("Failed to convert user ID to object ID: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to convert user ID to object ID", "message": err.Error()})
+		return
+	}
+
+	user, err := h.user.FindUserByID(c.Request.Context(), objectID)
+	if err != nil {
+		log.Printf("Failed to get user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user", "message": err.Error()})
+		return
+	}
+
 	client := &hub.Client{
 		Hub:               h.hub,
 		Conn:              conn,
 		Send:              make(chan []byte, 256),
-		UserID:            validatedUserID,
 		MessageRepository: h.message,
 		GroupIds:          groupIds,
+		User:              user,
 	}
 
 	client.Hub.Register <- client

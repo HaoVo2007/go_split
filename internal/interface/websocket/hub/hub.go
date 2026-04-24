@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"go-split/internal/domain/entity"
 	"go-split/internal/interface/websocket/event"
 )
 
@@ -55,7 +56,7 @@ func (h *Hub) Run() {
 					}
 				}
 			}
-		}	
+		}
 	}
 }
 
@@ -67,10 +68,42 @@ func (h *Hub) broadcastPresence(groupID string, typeStr string) {
 
 	count := len(clients)
 
+	userUnique := []*entity.Users{}
+	userUniqueMap := make(map[string]bool)
+	for client := range clients {
+		if !userUniqueMap[client.User.ID.Hex()] {
+			userUnique = append(userUnique, client.User)
+			userUniqueMap[client.User.ID.Hex()] = true
+		}
+	}
+
+	users := []*event.PresenceUser{}
+	for _, user := range userUnique {
+		var name string
+		if user.Profile != nil && user.Profile.Name != nil {
+			name = *user.Profile.Name
+		} else {
+			name = user.Email
+		}
+		var avatar string
+		if user.Profile != nil && user.Profile.Image != nil {
+			avatar = *user.Profile.Image
+		} else {
+			avatar = ""
+		}
+		users = append(users, &event.PresenceUser{
+			UserID: user.ID.Hex(),
+			Name:   name,
+			Avatar: avatar,
+		})
+	}
+
 	presenceEvent := &event.PresenceEvent{
-		GroupID: groupID,
-		Count:   count,
-		Type:    typeStr,
+		TypeMessage: "presence",
+		GroupID:     groupID,
+		Count:       count,
+		Type:        typeStr,
+		Users:       users,
 	}
 
 	for client := range clients {
