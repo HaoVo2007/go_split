@@ -4,8 +4,10 @@ import (
 	"context"
 	"go-split/internal/domain/entity"
 	"go-split/internal/domain/repository"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -64,4 +66,31 @@ func (r *messageRepositoryMongo) GetMessagesByGroupID(ctx context.Context, group
 		messages = append(messages, message)
 	}
 	return messages, nil
+}
+
+func (r *messageRepositoryMongo) MarkSeenUpTo(ctx context.Context, groupID string, userID string, lastMessageIDs []primitive.ObjectID) error {
+	filter := bson.M{
+		"group_id": groupID,
+		"_id": bson.M{
+			"$in": lastMessageIDs,
+		},
+		"seen_by.user_id": bson.M{
+			"$ne": userID,
+		},
+	}
+
+	update := bson.M{
+		"$push": bson.M{
+			"seen_by": bson.M{
+				"user_id": userID,
+				"seen_at": time.Now(),
+			},
+		},
+	}
+
+	_, err := r.collection.UpdateMany(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	return nil
 }

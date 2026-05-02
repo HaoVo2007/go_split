@@ -50,55 +50,31 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		var msg event.MessageEvent
-
-		msg.SenderID = c.User.ID.Hex()
-
-		var senderName string
-		if c.User.Profile != nil && c.User.Profile.Name != nil {
-			senderName = *c.User.Profile.Name
-		} else {
-			senderName = c.User.Email
+		var base struct {
+			TypeMessage string `json:"type_message"`
 		}
 
-		var senderAvatar string
-		if c.User.Profile != nil && c.User.Profile.Image != nil {
-			senderAvatar = *c.User.Profile.Image
-		} else {
-			senderAvatar = ""
-		}
-
-		if err := json.Unmarshal(data, &msg); err != nil {
-			log.Printf("error: %v", err)
-			break
-		}
-
-		msg.SenderName = senderName
-		msg.Avatar = senderAvatar
-		msg.TypeMessage = "message"
-		
-
-		if !c.GroupIds[msg.GroupID] {
-			log.Println("User send message to group not in list of groups")
+		if err := json.Unmarshal(data, &base); err != nil {
+			log.Println(err)
 			continue
 		}
 
-		message := entity.Messages{
-			ID:        primitive.NewObjectID(),
-			GroupID:   msg.GroupID,
-			Message:   msg.Message,
-			UserID:    c.User.ID.Hex(),
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+		switch base.TypeMessage {
+		case "message":
+			var msg event.IncomingMessageEvent
+			if err := json.Unmarshal(data, &msg); err != nil {
+				log.Printf("error: %v", err)
+				break
+			}
+			c.handleMessage(msg)
+		case "seen":
+			var seen event.SeenEventSendToServer
+			if err := json.Unmarshal(data, &seen); err != nil {
+				log.Printf("error: %v", err)
+				break
+			}
+			c.handleSeen(seen)
 		}
-
-		err = c.MessageRepository.CreateMessage(context.Background(), message)
-		if err != nil {
-			log.Printf("error: %v", err)
-			break
-		}
-
-		c.Hub.Broadcasts <- &msg
 	}
 }
 
@@ -139,4 +115,120 @@ func (c *Client) WritePump() {
 			}
 		}
 	}
+}
+
+func (c *Client) handleMessage(incoming event.IncomingMessageEvent) {
+	if !c.GroupIds[incoming.GroupID] {
+		log.Println("User send message to group not in list of groups")
+		return
+	}
+
+	var senderName string
+	if c.User.Profile != nil && c.User.Profile.Name != nil {
+		senderName = *c.User.Profile.Name
+	} else {
+		senderName = c.User.Email
+	}
+
+	var senderAvatar string
+	if c.User.Profile != nil && c.User.Profile.Image != nil {
+		senderAvatar = *c.User.Profile.Image
+	} else {
+		senderAvatar = ""
+	}
+
+	message := entity.Messages{
+		ID:      primitive.NewObjectID(),
+		GroupID: incoming.GroupID,
+		Message: incoming.Message,
+		UserID:  c.User.ID.Hex(),
+		SeenBy: []entity.SeenByUser{
+			{
+				UserID: c.User.ID.Hex(),
+				SeenAt: time.Now(),
+			},
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err := c.MessageRepository.CreateMessage(context.Background(), message)
+	if err != nil {
+		log.Printf("error: %v", err)
+		return
+	}
+
+	outgoing := &event.OutGoingMessageEvent{
+		TypeMessage: "message",
+		GroupID:     incoming.GroupID,
+		Message:     incoming.Message,
+		SenderID:    c.User.ID.Hex(),
+		SenderName:  senderName,
+		Avatar:      senderAvatar,
+		CreatedAt:   time.Now(),
+	}
+
+	c.Hub.Broadcasts <- outgoing
+}
+
+func (c *Client) handleSeen(seen event.SeenEventSendToServer) {
+	userID := c.User.ID.Hex()
+
+	if !c.GroupIds[seen.GroupID] {
+		log.Println("User send seen to group not in list of groups")
+		return
+	}
+
+	lastMsgIDs := []primitive.ObjectID{}
+	for _, messageID := range seen.Messages {
+		lastMsgID, err := primitive.ObjectIDFromHex(messageID)
+		if err != nil {
+			log.Printf("error: %v", err)
+			return
+		}
+		lastMsgIDs = append(lastMsgIDs, lastMsgID)
+	}
+
+	var name string
+	var avatar string
+	if c.User.Profile != nil && c.User.Profile.Name != nil {
+		name = *c.User.Profile.Name
+	} else {
+		name = c.User.Email
+	}
+
+	if c.User.Profile != nil && c.User.Profile.Image != nil {
+		avatar = *c.User.Profile.Image
+	} else {
+		avatar = ""
+	}
+
+	userInfo := &event.UserInfo{
+		UserID: c.User.ID.Hex(),
+		Name:   name,
+		Avatar: avatar,
+	}
+
+	seenEvent := event.SeenEventSendToClient{
+		TypeMessage: "seen",
+		GroupID:     seen.GroupID,
+		UserID:      userID,
+		User:        userInfo,
+		Messages:    seen.Messages,
+		SeenAt:      time.Now(),
+	}
+
+	go func() {
+		err := c.MessageRepository.MarkSeenUpTo(
+			context.Background(),
+			seen.GroupID,
+			userID,
+			lastMsgIDs,
+		)
+		if err != nil {
+			log.Println("mark seen error:", err)
+		}
+
+		c.Hub.SeenBroadcasts <- &seenEvent
+	}()
 }

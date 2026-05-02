@@ -6,18 +6,20 @@ import (
 )
 
 type Hub struct {
-	Groups     map[string]map[*Client]bool
-	Broadcasts chan *event.MessageEvent
-	Register   chan *Client
-	Unregister chan *Client
+	Groups         map[string]map[*Client]bool
+	Broadcasts     chan *event.OutGoingMessageEvent
+	SeenBroadcasts chan *event.SeenEventSendToClient
+	Register       chan *Client
+	Unregister     chan *Client
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		Groups:     make(map[string]map[*Client]bool),
-		Broadcasts: make(chan *event.MessageEvent),
-		Register:   make(chan *Client),
-		Unregister: make(chan *Client),
+		Groups:         make(map[string]map[*Client]bool),
+		Broadcasts:     make(chan *event.OutGoingMessageEvent),
+		SeenBroadcasts: make(chan *event.SeenEventSendToClient),
+		Register:       make(chan *Client),
+		Unregister:     make(chan *Client),
 	}
 }
 
@@ -56,6 +58,8 @@ func (h *Hub) Run() {
 					}
 				}
 			}
+		case seen := <-h.SeenBroadcasts:
+			h.handleSeen(seen)
 		}
 	}
 }
@@ -113,6 +117,25 @@ func (h *Hub) broadcastPresence(groupID string, typeStr string) {
 			delete(clients, client)
 			if len(clients) == 0 {
 				delete(h.Groups, groupID)
+			}
+		}
+	}
+}
+
+func (h *Hub) handleSeen(seenEvent *event.SeenEventSendToClient) {
+	clients, ok := h.Groups[seenEvent.GroupID]
+	if !ok {
+		return
+	}
+	for client := range clients {
+		if client.User.ID.Hex() != seenEvent.UserID {
+			select {
+			case client.Send <- seenEvent.ToJSON():
+			default:
+				delete(clients, client)
+				if len(clients) == 0 {
+					delete(h.Groups, seenEvent.GroupID)
+				}
 			}
 		}
 	}

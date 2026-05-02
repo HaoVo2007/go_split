@@ -44,4 +44,5 @@ type ExpenseSplitRepository interface {
 type MessageRepository interface {
 	CreateMessage(ctx context.Context, message entity.Messages) error
 	GetMessagesByGroupID(ctx context.Context, groupID string, pageSize int, pageIndex int) ([]*entity.Messages, error)
+	MarkSeenUpTo(ctx context.Context, groupID string, userID string, lastMessageIDs []primitive.ObjectID) error
 }
