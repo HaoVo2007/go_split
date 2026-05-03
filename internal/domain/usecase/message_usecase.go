@@ -30,9 +30,21 @@ func NewMessageUseCase(
 }
 
 func (m *messageUseCase) GetMessagesByGroupID(ctx context.Context, groupID string, pageSize int, pageIndex int) (*messageRes.ListMessageResponse, error) {
-	messages, err := m.messageRepository.GetMessagesByGroupID(ctx, groupID, pageSize, pageIndex)
+	messages, totalItems, err := m.messageRepository.GetMessagesByGroupID(ctx, groupID, pageSize, pageIndex)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(messages) == 0 {
+		return &messageRes.ListMessageResponse{
+			Messages:   []*messageRes.MessageResponse{},
+			Pagination: &messageRes.PaginationResponse{
+				PageSize:   pageSize,
+				PageIndex:  pageIndex,
+				TotalItems: 0,
+				TotalPages: 0,
+			},
+		}, nil
 	}
 
 	var userIDs []primitive.ObjectID
@@ -61,8 +73,8 @@ func (m *messageUseCase) GetMessagesByGroupID(ctx context.Context, groupID strin
 		Pagination: &messageRes.PaginationResponse{
 			PageSize:   pageSize,
 			PageIndex:  pageIndex,
-			TotalItems: len(messages),
-			TotalPages: len(messages) / pageSize,
+			TotalItems: int(totalItems),
+			TotalPages: (int(totalItems) + pageSize - 1) / pageSize,
 		},
 	}, nil
 	

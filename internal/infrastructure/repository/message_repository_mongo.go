@@ -30,7 +30,7 @@ func (r *messageRepositoryMongo) CreateMessage(ctx context.Context, message enti
 	return nil
 }
 
-func (r *messageRepositoryMongo) GetMessagesByGroupID(ctx context.Context, groupID string, pageSize int, pageIndex int) ([]*entity.Messages, error) {
+func (r *messageRepositoryMongo) GetMessagesByGroupID(ctx context.Context, groupID string, pageSize int, pageIndex int) ([]*entity.Messages, int64, error) {
 	filter := bson.M{
 		"group_id": groupID,
 	}
@@ -50,9 +50,14 @@ func (r *messageRepositoryMongo) GetMessagesByGroupID(ctx context.Context, group
 	opts.SetLimit(int64(pageSize))
 	opts.SetSort(bson.M{"created_at": -1})
 
+	totalItems, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer cursor.Close(ctx)
 
@@ -61,11 +66,11 @@ func (r *messageRepositoryMongo) GetMessagesByGroupID(ctx context.Context, group
 		message := &entity.Messages{}
 		err := cursor.Decode(message)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		messages = append(messages, message)
 	}
-	return messages, nil
+	return messages, totalItems, nil
 }
 
 func (r *messageRepositoryMongo) MarkSeenUpTo(ctx context.Context, groupID string, userID string, lastMessageIDs []primitive.ObjectID) error {
