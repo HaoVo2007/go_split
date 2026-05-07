@@ -45,4 +45,6 @@ type MessageRepository interface {
 	CreateMessage(ctx context.Context, message entity.Messages) error
 	GetMessagesByGroupID(ctx context.Context, groupID string, pageSize int, pageIndex int) ([]*entity.Messages, int64, error)
 	MarkSeenUpTo(ctx context.Context, groupID string, userID string, lastMessageIDs []primitive.ObjectID) error
+	GetUnreadCounts(ctx context.Context, groupIDs []string, userID string) (map[string]int, error)
+	GetUnreadCount(ctx context.Context, groupID string, userID string) (int, error)
 }

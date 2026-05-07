@@ -65,12 +65,10 @@ func NewContainer() (*Container, error) {
 		return nil, err
 	}
 
-	hub := hub.NewHub()
 
 	c := &Container{
 		Config:             cfg,
 		CloudinaryUploader: cloudinaryUploader,
-		Hub:                hub,
 		Repository:         &Repository{},
 		UseCase:            &UseCase{},
 		Handler:            &Handler{},
@@ -79,6 +77,10 @@ func NewContainer() (*Container, error) {
 	if err := c.initDatabase(); err != nil {
 		return nil, err
 	}
+
+	hub := hub.NewHub(c.Repository.MessageRepository)
+	
+	c.Hub = hub
 
 	c.initRouter()
 

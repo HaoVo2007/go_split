@@ -99,3 +99,30 @@ func (r *messageRepositoryMongo) MarkSeenUpTo(ctx context.Context, groupID strin
 	}
 	return nil
 }
+
+func (r *messageRepositoryMongo) GetUnreadCounts(ctx context.Context, groupIDs []string, userID string) (map[string]int, error) {
+	counts := make(map[string]int)
+	for _, groupID := range groupIDs {
+		count, err := r.GetUnreadCount(ctx, groupID, userID)
+		if err != nil {
+			return nil, err
+		}
+		counts[groupID] = count
+	}
+	return counts, nil
+}
+
+func (r *messageRepositoryMongo) GetUnreadCount(ctx context.Context, groupID string, userID string) (int, error) {
+	filter := bson.M{
+		"group_id": groupID,
+		"seen_by.user_id": bson.M{
+			"$ne": userID,
+		},
+	}
+
+	count, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil	
+}

@@ -61,14 +61,14 @@ func (c *Client) ReadPump() {
 
 		switch base.TypeMessage {
 		case "message":
-			var msg event.IncomingMessageEvent
+			var msg event.MessageRequest
 			if err := json.Unmarshal(data, &msg); err != nil {
 				log.Printf("error: %v", err)
 				break
 			}
 			c.handleMessage(msg)
 		case "seen":
-			var seen event.SeenEventSendToServer
+			var seen event.SeenRequest
 			if err := json.Unmarshal(data, &seen); err != nil {
 				log.Printf("error: %v", err)
 				break
@@ -117,7 +117,7 @@ func (c *Client) WritePump() {
 	}
 }
 
-func (c *Client) handleMessage(incoming event.IncomingMessageEvent) {
+func (c *Client) handleMessage(incoming event.MessageRequest) {
 	if !c.GroupIds[incoming.GroupID] {
 		log.Println("User send message to group not in list of groups")
 		return
@@ -152,13 +152,12 @@ func (c *Client) handleMessage(incoming event.IncomingMessageEvent) {
 		UpdatedAt: time.Now(),
 	}
 
-	err := c.MessageRepository.CreateMessage(context.Background(), message)
-	if err != nil {
+	if err := c.MessageRepository.CreateMessage(context.Background(), message); err != nil {
 		log.Printf("error: %v", err)
 		return
 	}
 
-	outgoing := &event.OutGoingMessageEvent{
+	c.Hub.MessageBroadcasts <- &event.MessageEvent{
 		TypeMessage: "message",
 		GroupID:     incoming.GroupID,
 		Message:     incoming.Message,
@@ -168,10 +167,14 @@ func (c *Client) handleMessage(incoming event.IncomingMessageEvent) {
 		CreatedAt:   time.Now(),
 	}
 
-	c.Hub.Broadcasts <- outgoing
+	c.Hub.UnreadBroadcasts <- &event.UnreadEvent{
+		TypeMessage: "unread_count",
+		GroupID:     incoming.GroupID,
+		SenderID:    c.User.ID.Hex(),
+	}
 }
 
-func (c *Client) handleSeen(seen event.SeenEventSendToServer) {
+func (c *Client) handleSeen(seen event.SeenRequest) {
 	userID := c.User.ID.Hex()
 
 	if !c.GroupIds[seen.GroupID] {
@@ -190,45 +193,70 @@ func (c *Client) handleSeen(seen event.SeenEventSendToServer) {
 	}
 
 	var name string
-	var avatar string
 	if c.User.Profile != nil && c.User.Profile.Name != nil {
 		name = *c.User.Profile.Name
 	} else {
 		name = c.User.Email
 	}
 
+	var avatar string
 	if c.User.Profile != nil && c.User.Profile.Image != nil {
 		avatar = *c.User.Profile.Image
 	} else {
 		avatar = ""
 	}
 
-	userInfo := &event.UserInfo{
-		UserID: c.User.ID.Hex(),
-		Name:   name,
-		Avatar: avatar,
-	}
-
-	seenEvent := event.SeenEventSendToClient{
+	seenEvent := event.SeenEvent{
 		TypeMessage: "seen",
 		GroupID:     seen.GroupID,
 		UserID:      userID,
-		User:        userInfo,
-		Messages:    seen.Messages,
-		SeenAt:      time.Now(),
+		User: &event.UserSnapshot{
+			UserID: c.User.ID.Hex(),
+			Name:   name,
+			Avatar: avatar,
+		},
+		Messages: seen.Messages,
+		SeenAt:   time.Now(),
 	}
 
 	go func() {
-		err := c.MessageRepository.MarkSeenUpTo(
+		if err := c.MessageRepository.MarkSeenUpTo(
 			context.Background(),
 			seen.GroupID,
 			userID,
 			lastMsgIDs,
-		)
-		if err != nil {
+		); err != nil {
 			log.Println("mark seen error:", err)
 		}
 
 		c.Hub.SeenBroadcasts <- &seenEvent
 	}()
+
+	resetEvent := &event.UnreadUpdateEvent{
+		TypeMessage: "unread_count",
+		GroupID:     seen.GroupID,
+		Count:       0,
+	}
+
+	c.Send <- resetEvent.ToJSON()
+}
+
+func (c *Client) sendInitialUnreadCounts() {
+	groupIDs := make([]string, 0, len(c.GroupIds))
+	for groupID := range c.GroupIds {
+		groupIDs = append(groupIDs, groupID)
+	}
+
+	counts, err := c.MessageRepository.GetUnreadCounts(context.Background(), groupIDs, c.User.ID.Hex())
+	if err != nil {
+		log.Println("get unread counts error:", err)
+		return
+	}
+
+	e := &event.UnreadEvent{
+		TypeMessage: "unread_count",
+		Counts:      counts,
+	}
+
+	c.Send <- e.ToJSON()
 }
