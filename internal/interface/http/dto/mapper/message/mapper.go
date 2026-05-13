@@ -4,6 +4,7 @@ import (
 	"go-split/internal/domain/entity"
 	userMapper "go-split/internal/interface/http/dto/mapper/user"
 	messageRes "go-split/internal/interface/http/dto/response/message"
+	"time"
 )
 
 func ToMessageResponse(messages []*entity.Messages, userMap map[string]*entity.Users) []*messageRes.MessageResponse {
@@ -14,8 +15,8 @@ func ToMessageResponse(messages []*entity.Messages, userMap map[string]*entity.U
 			GroupID:   message.GroupID,
 			Message:   message.Message,
 			Sender:    userMapper.ToUserResponse(userMap[message.UserID]),
-			CreatedAt: message.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt: message.UpdatedAt.Format("2006-01-02 15:04:05"),
+			CreatedAt: message.CreatedAt.Add(7 * time.Hour).Format("2006-01-02 15:04:05"),
+			UpdatedAt: message.UpdatedAt.Add(7 * time.Hour).Format("2006-01-02 15:04:05"),
 		}
 	}
 	return messageResponses

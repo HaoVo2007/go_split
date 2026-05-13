@@ -258,5 +258,10 @@ func (c *Client) sendInitialUnreadCounts() {
 		Counts:      counts,
 	}
 
-	c.Send <- e.ToJSON()
+	select {
+	case c.Send <- e.ToJSON():
+	default:
+		log.Println("channel closed or full, skip sending")
+		return
+	}
 }
