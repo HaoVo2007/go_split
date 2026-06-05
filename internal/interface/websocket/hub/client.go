@@ -17,7 +17,7 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 512
+	maxMessageSize = 4096
 )
 
 var (
@@ -160,6 +160,7 @@ func (c *Client) handleMessage(incoming event.MessageRequest) {
 	c.Hub.MessageBroadcasts <- &event.MessageEvent{
 		TypeMessage: "message",
 		GroupID:     incoming.GroupID,
+		MessageID:   message.ID.Hex(),
 		Message:     incoming.Message,
 		SenderID:    c.User.ID.Hex(),
 		SenderName:  senderName,

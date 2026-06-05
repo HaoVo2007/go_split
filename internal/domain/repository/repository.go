@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"go-split/internal/domain/entity"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -47,4 +48,5 @@ type MessageRepository interface {
 	MarkSeenUpTo(ctx context.Context, groupID string, userID string, lastMessageIDs []primitive.ObjectID) error
 	GetUnreadCounts(ctx context.Context, groupIDs []string, userID string) (map[string]int, error)
 	GetUnreadCount(ctx context.Context, groupID string, userID string) (int, error)
+	UpdateLastSeen(ctx context.Context, groupID string, userID string, lastSeenAt time.Time) error
 }

@@ -65,7 +65,6 @@ func NewContainer() (*Container, error) {
 		return nil, err
 	}
 
-
 	c := &Container{
 		Config:             cfg,
 		CloudinaryUploader: cloudinaryUploader,
@@ -78,13 +77,13 @@ func NewContainer() (*Container, error) {
 		return nil, err
 	}
 
-	hub := hub.NewHub(c.Repository.MessageRepository)
-	
-	c.Hub = hub
-
 	c.initRouter()
 
 	c.initRepositories()
+
+	hub := hub.NewHub(c.Repository.MessageRepository)
+
+	c.Hub = hub
 
 	c.initUseCases()
 
@@ -136,7 +135,7 @@ func (c *Container) initRepositories() {
 	c.Repository.GroupRepository = infrastructureRepository.NewGroupRepositoryMongo(c.MongoDB.Collection("groups"))
 	c.Repository.ExpenseRepository = infrastructureRepository.NewExpenseRepositoryMongo(c.MongoDB.Collection("expenses"))
 	c.Repository.ExpenseSplitRepository = infrastructureRepository.NewExpenseSplitRepository(c.MongoDB.Collection("expense_splits"))
-	c.Repository.MessageRepository = infrastructureRepository.NewMessageRepositoryMongo(c.MongoDB.Collection("messages"))
+	c.Repository.MessageRepository = infrastructureRepository.NewMessageRepositoryMongo(c.MongoDB.Collection("messages"), c.MongoDB.Collection("user_group_activity"))
 }
 
 func (c *Container) initUseCases() {

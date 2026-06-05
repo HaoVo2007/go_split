@@ -5,6 +5,7 @@ import (
 	"go-split/internal/domain/repository"
 	"go-split/internal/interface/websocket/event"
 	"log"
+	"time"
 )
 
 type Hub struct {
@@ -51,6 +52,12 @@ func (h *Hub) Run() {
 				if len(h.Groups[groupID]) == 0 {
 					delete(h.Groups, groupID)
 				}
+				go func(gID string, userID string) {
+					err := h.MessageRepository.UpdateLastSeen(context.Background(), gID, userID, time.Now())
+					if err != nil {
+						log.Println("update last seen error:", err)
+					}
+				}(groupID, client.User.ID.Hex())
 			}
 			close(client.Send)
 
@@ -85,6 +92,17 @@ func (h *Hub) broadcastSeen(seenEvent *event.SeenEvent) {
 	if !ok {
 		return
 	}
+	go func() {
+		err := h.MessageRepository.UpdateLastSeen(
+			context.Background(),
+			seenEvent.GroupID,
+			seenEvent.UserID,
+			time.Now(),
+		)
+		if err != nil {
+			log.Println("update last seen error:", err)
+		}
+	}()
 	for client := range clients {
 		if client.User.ID.Hex() == seenEvent.UserID {
 			continue

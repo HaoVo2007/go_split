@@ -20,3 +20,11 @@ type SeenByUser struct {
 	UserID string    `bson:"user_id" json:"user_id"`
 	SeenAt time.Time `bson:"seen_at" json:"seen_at"`
 }
+type UserGroupActivity struct {
+	ID         primitive.ObjectID `bson:"_id" json:"id"`
+	GroupID    string             `bson:"group_id" json:"group_id"`
+	UserID     string             `bson:"user_id" json:"user_id"`
+	LastSeenAt time.Time          `bson:"last_seen_at" json:"last_seen_at"`
+	CreatedAt  time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt  time.Time          `bson:"updated_at" json:"updated_at"`
+}

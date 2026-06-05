@@ -13,12 +13,14 @@ import (
 )
 
 type messageRepositoryMongo struct {
-	collection *mongo.Collection
+	collection                  *mongo.Collection
+	userGroupActivityCollection *mongo.Collection
 }
 
-func NewMessageRepositoryMongo(collection *mongo.Collection) repository.MessageRepository {
+func NewMessageRepositoryMongo(collection *mongo.Collection, userGroupActivityCollection *mongo.Collection) repository.MessageRepository {
 	return &messageRepositoryMongo{
-		collection: collection,
+		collection:                  collection,
+		userGroupActivityCollection: userGroupActivityCollection,
 	}
 }
 
@@ -113,16 +115,48 @@ func (r *messageRepositoryMongo) GetUnreadCounts(ctx context.Context, groupIDs [
 }
 
 func (r *messageRepositoryMongo) GetUnreadCount(ctx context.Context, groupID string, userID string) (int, error) {
-	filter := bson.M{
-		"group_id": groupID,
-		"seen_by.user_id": bson.M{
-			"$ne": userID,
-		},
-	}
+    var activity struct {
+        LastSeenAt time.Time `bson:"last_seen_at"`
+    }
 
-	count, err := r.collection.CountDocuments(ctx, filter)
-	if err != nil {
-		return 0, err
-	}
-	return int(count), nil	
+    filter := bson.M{
+        "group_id": groupID,
+        "user_id":  userID,
+    }
+
+    err := r.userGroupActivityCollection.FindOne(ctx, filter).Decode(&activity)
+    if err == mongo.ErrNoDocuments {
+        return 0, nil
+    }
+    if err != nil {
+        return 0, err
+    }
+
+    count, err := r.collection.CountDocuments(ctx, bson.M{
+        "group_id":  groupID,
+        "sender_id": bson.M{"$ne": userID},
+        "created_at": bson.M{"$gt": activity.LastSeenAt},
+    })
+    if err != nil {
+        return 0, err
+    }
+
+    return int(count), nil
+}
+
+func (r *messageRepositoryMongo) UpdateLastSeen(ctx context.Context, groupID string, userID string, lastSeenAt time.Time) error {
+    filter := bson.M{
+        "group_id": groupID,
+        "user_id":  userID,
+    }
+	
+    update := bson.M{
+        "$set": bson.M{
+            "last_seen_at": lastSeenAt,
+        },
+    }
+
+    opts := options.Update().SetUpsert(true)
+    _, err := r.userGroupActivityCollection.UpdateOne(ctx, filter, update, opts)
+    return err
 }

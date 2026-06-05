@@ -24,6 +24,7 @@ type SeenRequest struct {
 type MessageEvent struct {
 	TypeMessage string    `json:"type_message"`
 	GroupID     string    `json:"group_id"`
+	MessageID   string    `json:"message_id"`
 	Message     string    `json:"message"`
 	SenderID    string    `json:"sender_id"`
 	SenderName  string    `json:"sender_name"`
