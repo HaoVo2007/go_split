@@ -25,7 +25,7 @@ type ExpenseUseCase interface {
 	UpdateExpenseById(ctx context.Context, expenseID string, req expense.UpdateExpenseRequest) error
 	DeleteExpenseById(ctx context.Context, expenseID string) error
 	GetSettlementByExpenseID(ctx context.Context, expenseID string) (*expenseRes.SettlementResponse, error)
-	GetExpensesByGroupID(ctx context.Context, groupID string) ([]*expenseRes.ExpenseResponse, error)
+	GetExpensesByGroupID(ctx context.Context, groupID string, pageSize int, pageIndex int) (*expenseRes.ListExpenseResponse, error)
 	GetBalanceByGroupID(ctx context.Context, groupID string) (*expenseRes.BalanceResponse, error)
 }
 
@@ -526,8 +526,8 @@ func (e *expenseUseCase) GetSettlementByExpenseID(ctx context.Context, expenseID
 	}, nil
 }
 
-func (e *expenseUseCase) GetExpensesByGroupID(ctx context.Context, groupID string) ([]*expenseRes.ExpenseResponse, error) {
-	expenses, err := e.expenseRepository.GetExpensesByGroupID(ctx, groupID)
+func (e *expenseUseCase) GetExpensesByGroupID(ctx context.Context, groupID string, pageSize int, pageIndex int) (*expenseRes.ListExpenseResponse, error) {
+	expenses, totalItems, err := e.expenseRepository.GetExpensesByGroupIDPaginated(ctx, groupID, pageSize, pageIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -564,7 +564,16 @@ func (e *expenseUseCase) GetExpensesByGroupID(ctx context.Context, groupID strin
 		responses[i] = expenseMapper.ToExpenseResponse(expense, paidByUsers)
 	}
 
-	return responses, nil
+	return &expenseRes.ListExpenseResponse{
+		Expenses: responses,
+		Pagination: &expenseRes.PaginationResponse{
+			PageSize:   pageSize,
+			PageIndex:  pageIndex,
+			TotalItems: int(totalItems),
+			TotalPages: (int(totalItems) + pageSize - 1) / pageSize,
+		},
+	}, nil
+
 }
 
 func (e *expenseUseCase) GetBalanceByGroupID(ctx context.Context, groupID string) (*expenseRes.BalanceResponse, error) {

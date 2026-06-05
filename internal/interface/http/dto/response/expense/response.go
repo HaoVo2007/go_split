@@ -2,6 +2,18 @@ package expense
 
 import "go-split/internal/interface/http/dto/response/user"
 
+type ListExpenseResponse struct {
+	Expenses   []*ExpenseResponse  `json:"expenses"`
+	Pagination *PaginationResponse `json:"pagination"`
+}
+
+type PaginationResponse struct {
+	PageSize   int `json:"page_size"`
+	PageIndex  int `json:"page_index"`
+	TotalItems int `json:"total_items"`
+	TotalPages int `json:"total_pages"`
+}
+
 type ExpenseResponse struct {
 	ID            string               `json:"id"`
 	Name          string               `json:"name"`

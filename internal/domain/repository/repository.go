@@ -32,6 +32,7 @@ type ExpenseRepository interface {
 	GetExpenseById(ctx context.Context, expenseID primitive.ObjectID) (*entity.Expenses, error)
 	UpdateExpenseById(ctx context.Context, expenseID primitive.ObjectID, expense *entity.Expenses) error
 	GetExpensesByGroupID(ctx context.Context, groupID string) ([]*entity.Expenses, error)
+	GetExpensesByGroupIDPaginated(ctx context.Context, groupID string, pageSize int, pageIndex int) ([]*entity.Expenses, int64, error)
 	GetExpensesByGroupIDs(ctx context.Context, groupIDs []string) ([]*entity.Expenses, error)
 }
 

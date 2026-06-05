@@ -90,6 +90,41 @@ func (r *expenseRepositoryMongo) GetExpensesByGroupID(ctx context.Context, group
 	return expenses, nil
 }
 
+func (r *expenseRepositoryMongo) GetExpensesByGroupIDPaginated(ctx context.Context, groupID string, pageSize int, pageIndex int) ([]*entity.Expenses, int64, error) {
+	filter := bson.M{
+		"group_id":   groupID,
+		"is_deleted": false,
+	}
+
+	count, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	expenses := []*entity.Expenses{}
+	skip := (pageIndex - 1) * pageSize
+	options := options.Find().SetSkip(int64(skip)).SetLimit(int64(pageSize)).SetSort(bson.M{"created_at": -1})
+	cursor, err := r.collection.Find(ctx, filter, options)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		expense := &entity.Expenses{}
+		err := cursor.Decode(expense)
+		if err != nil {
+			return nil, 0, err
+		}
+		expenses = append(expenses, expense)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, 0, err
+	}
+	return expenses, count, nil
+}
+
 func (r *expenseRepositoryMongo) GetExpensesByGroupIDs(ctx context.Context, groupIDs []string) ([]*entity.Expenses, error) {
 	filter := bson.M{
 		"group_id": bson.M{

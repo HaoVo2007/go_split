@@ -5,6 +5,7 @@ import (
 	"go-split/internal/interface/http/dto/request/expense"
 	"go-split/pkg/libs/response"
 	"go-split/pkg/libs/validator"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -118,13 +119,36 @@ func (h *ExpenseHandler) GetSettlementByExpenseID(c *gin.Context) {
 }
 
 func (h *ExpenseHandler) GetExpensesByGroupID(c *gin.Context) {
+	pageSize := c.Query("page_size")
+	pageIndex := c.Query("page_index")
+
+	if pageSize == "" {
+		pageSize = "10"
+	}
+
+	if pageIndex == "" {
+		pageIndex = "1"
+	}
+
+	pageSizeInt, err := strconv.Atoi(pageSize)
+	if err != nil {
+		response.BadRequestSimple(c, "invalid page size")
+		return
+	}
+
+	pageIndexInt, err := strconv.Atoi(pageIndex)
+	if err != nil {
+		response.BadRequestSimple(c, "invalid page index")
+		return
+	}
+
 	groupID := c.Param("group_id")
 	if groupID == "" {
 		response.BadRequestSimple(c, "group ID is required")
 		return
 	}
 
-	expenses, err := h.expenseUseCase.GetExpensesByGroupID(c.Request.Context(), groupID)
+	expenses, err := h.expenseUseCase.GetExpensesByGroupID(c.Request.Context(), groupID, pageSizeInt, pageIndexInt)
 	if err != nil {
 		response.InternalServerError(c, err)
 		return
