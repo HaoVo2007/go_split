@@ -15,15 +15,22 @@ type PaginationResponse struct {
 }
 
 type ExpenseResponse struct {
-	ID            string               `json:"id"`
-	Name          string               `json:"name"`
-	Amount        float64              `json:"amount"`
-	Category      string               `json:"category"`
-	Image         string               `json:"image"`
-	ImagePublicID string               `json:"image_public_id"`
-	PaidBy        []*user.UserResponse `json:"paid_by"`
-	CreatedAt     string               `json:"created_at"`
-	UpdatedAt     string               `json:"updated_at"`
+	ID                string               `json:"id"`
+	Name              string               `json:"name"`
+	Amount            float64              `json:"amount"`
+	Category          string               `json:"category"`
+	Image             string               `json:"image"`
+	ImagePublicID     string               `json:"image_public_id"`
+	PaidBy            []*user.UserResponse `json:"paid_by"`
+	Participants      []*user.UserResponse `json:"participants"`
+	ParticipantSplits []*ParticipantSplit `json:"participant_splits"`
+	CreatedAt         string               `json:"created_at"`
+	UpdatedAt         string               `json:"updated_at"`
+}
+
+type ParticipantSplit struct {
+	User *user.UserResponse `json:"user"`
+	Amount float64 `json:"amount"`
 }
 
 type BalanceResponse struct {

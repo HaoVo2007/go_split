@@ -309,8 +309,6 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, req user.UpdateProfileR
 		return nil, err
 	}
 
-
-	userCheck.Profile = userCheck.Profile
 	userCheck.Password = ""
 	userCheck.UpdatedAt = time.Now()
 

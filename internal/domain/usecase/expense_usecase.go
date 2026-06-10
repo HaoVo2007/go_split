@@ -202,33 +202,52 @@ func (e *expenseUseCase) GetExpenseById(ctx context.Context, expenseID string) (
 		return nil, errors.New("expense not found")
 	}
 
-	paidByIDs := []primitive.ObjectID{}
+	var allUserIDs []primitive.ObjectID
+	var mapUserBool = make(map[string]bool)
 	for _, paidByID := range expense.PaidBy {
-		paidByIDObject, err := primitive.ObjectIDFromHex(paidByID)
+		objID, err := primitive.ObjectIDFromHex(paidByID)
 		if err != nil {
 			return nil, err
 		}
-		paidByIDs = append(paidByIDs, paidByIDObject)
+		if _, ok := mapUserBool[paidByID]; !ok {
+			mapUserBool[paidByID] = true
+			allUserIDs = append(allUserIDs, objID)
+		}
 	}
 
-	paidByUsers, err := e.userRepository.GetUsersByIDs(ctx, paidByIDs)
+	for _, participantID := range expense.Participants {
+		objID, err := primitive.ObjectIDFromHex(participantID)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := mapUserBool[participantID]; !ok {
+			mapUserBool[participantID] = true
+			allUserIDs = append(allUserIDs, objID)
+		}
+	}
+
+	for _, splitID := range expense.ParticipantSplits {
+		objID, err := primitive.ObjectIDFromHex(splitID.UserID)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := mapUserBool[splitID.UserID]; !ok {
+			mapUserBool[splitID.UserID] = true
+			allUserIDs = append(allUserIDs, objID)
+		}
+	}
+
+	allUsers, err := e.userRepository.GetUsersByIDs(ctx, allUserIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	paidByUsersMap := make(map[string]*entity.Users)
-	for _, user := range paidByUsers {
-		paidByUsersMap[user.ID.Hex()] = user
+	allUsersMap := make(map[string]*entity.Users)
+	for _, user := range allUsers {
+		allUsersMap[user.ID.Hex()] = user
 	}
 
-	paidByUsersEntities := make([]*entity.Users, 0, len(expense.PaidBy))
-	for _, paidByID := range expense.PaidBy {
-		if user, ok := paidByUsersMap[paidByID]; ok {
-			paidByUsersEntities = append(paidByUsersEntities, user)
-		}
-	}
-
-	return expenseMapper.ToExpenseResponse(expense, paidByUsersEntities), nil
+	return expenseMapper.ToExpenseResponse(expense, allUsersMap), nil
 }
 
 func (e *expenseUseCase) UpdateExpenseById(ctx context.Context, expenseID string, req expense.UpdateExpenseRequest) error {
@@ -582,36 +601,41 @@ func (e *expenseUseCase) GetExpensesByGroupID(ctx context.Context, groupID strin
 		return nil, err
 	}
 
-	paidByIDs := []primitive.ObjectID{}
+	userIDSet := make(map[string]bool)
 	for _, expense := range expenses {
 		for _, paidByID := range expense.PaidBy {
-			paidByIDObject, err := primitive.ObjectIDFromHex(paidByID)
-			if err != nil {
-				return nil, err
-			}
-			paidByIDs = append(paidByIDs, paidByIDObject)
+			userIDSet[paidByID] = true
+		}
+		for _, participantID := range expense.Participants {
+			userIDSet[participantID] = true
+		}
+		for _, split := range expense.ParticipantSplits {
+			userIDSet[split.UserID] = true
 		}
 	}
 
-	paidByUsers, err := e.userRepository.GetUsersByIDs(ctx, paidByIDs)
+	userIDs := make([]primitive.ObjectID, 0, len(userIDSet))
+	for userID := range userIDSet {
+		userIDObject, err := primitive.ObjectIDFromHex(userID)
+		if err != nil {
+			return nil, err
+		}
+		userIDs = append(userIDs, userIDObject)
+	}
+
+	users, err := e.userRepository.GetUsersByIDs(ctx, userIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	paidByUsersMap := make(map[string]*entity.Users)
-	for _, user := range paidByUsers {
-		paidByUsersMap[user.ID.Hex()] = user
+	usersMap := make(map[string]*entity.Users)
+	for _, user := range users {
+		usersMap[user.ID.Hex()] = user
 	}
 
 	responses := make([]*expenseRes.ExpenseResponse, len(expenses))
 	for i, expense := range expenses {
-		paidByUsers := make([]*entity.Users, 0, len(expense.PaidBy))
-		for _, paidByID := range expense.PaidBy {
-			if user, ok := paidByUsersMap[paidByID]; ok {
-				paidByUsers = append(paidByUsers, user)
-			}
-		}
-		responses[i] = expenseMapper.ToExpenseResponse(expense, paidByUsers)
+		responses[i] = expenseMapper.ToExpenseResponse(expense, usersMap)
 	}
 
 	return &expenseRes.ListExpenseResponse{

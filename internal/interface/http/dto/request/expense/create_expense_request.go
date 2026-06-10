@@ -11,7 +11,7 @@ type CreateExpenseRequest struct {
 	Category          string                `form:"category" validate:"required" msg:""`
 	PaidBy            []string              `form:"paid_by" validate:"required" msg:""`
 	Participants      []string              `form:"participants" validate:"required" msg:""`
-	ParticipantSplits string    `form:"participant_splits" validate:"required" msg:""`
+	ParticipantSplits string                `form:"participant_splits" validate:"" msg:""`
 }
 
 type UpdateExpenseRequest struct {
