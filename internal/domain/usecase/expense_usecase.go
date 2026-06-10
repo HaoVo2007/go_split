@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go-split/internal/domain/entity"
@@ -54,23 +55,6 @@ func NewExpenseUseCase(
 }
 
 func (e *expenseUseCase) CreateExpense(ctx context.Context, req expense.CreateExpenseRequest) error {
-	var imageURL string
-	var imagePublicID string
-	if req.Image != nil {
-		tempPath := fmt.Sprintf("temp_%s", req.Image.Filename)
-		if err := helper.SaveUploadedFile(req.Image, tempPath); err != nil {
-			return err
-		}
-		defer os.Remove(tempPath)
-
-		image, publicID, err := e.cloudinaryUploader.UploadImage(ctx, tempPath, "expenses")
-		if err != nil {
-			return err
-		}
-		imageURL = image
-		imagePublicID = publicID
-	}
-
 	userID, err := helper.GetUserID(ctx)
 	if err != nil {
 		return err
@@ -116,23 +100,60 @@ func (e *expenseUseCase) CreateExpense(ctx context.Context, req expense.CreateEx
 		}
 	}
 
+	var participantSplits []entity.ParticipantSplit
+	if req.ParticipantSplits != "" {
+		json.Unmarshal([]byte(req.ParticipantSplits), &participantSplits)
+	}
+
+	remainingAmount := req.Amount
+	var customSplits = make(map[string]float64)
+	for _, split := range participantSplits {
+		customSplits[split.UserID] = split.Amount
+		remainingAmount -= split.Amount
+	}
+
+	var remainingParticipants []string
+	for _, participant := range req.Participants {
+		if _, ok := customSplits[participant]; !ok {
+			remainingParticipants = append(remainingParticipants, participant)
+		}
+	}
+
+	var imageURL string
+	var imagePublicID string
+	if req.Image != nil {
+		tempPath := fmt.Sprintf("temp_%s", req.Image.Filename)
+		if err := helper.SaveUploadedFile(req.Image, tempPath); err != nil {
+			return err
+		}
+		defer os.Remove(tempPath)
+
+		image, publicID, err := e.cloudinaryUploader.UploadImage(ctx, tempPath, "expenses")
+		if err != nil {
+			return err
+		}
+		imageURL = image
+		imagePublicID = publicID
+	}
+
 	expenseID := primitive.NewObjectID()
 	expense := entity.Expenses{
-		ID:            expenseID,
-		GroupID:       req.GroupID,
-		Image:         imageURL,
-		ImagePublicID: imagePublicID,
-		Date:          date,
-		Name:          req.Name,
-		Amount:        req.Amount,
-		Category:      req.Category,
-		PaidBy:        req.PaidBy,
-		Participants:  req.Participants,
-		IsDeleted:     false,
-		DeletedAt:     nil,
-		CreatedBy:     userID,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		ID:                expenseID,
+		GroupID:           req.GroupID,
+		Image:             imageURL,
+		ImagePublicID:     imagePublicID,
+		Date:              date,
+		Name:              req.Name,
+		Amount:            req.Amount,
+		Category:          req.Category,
+		PaidBy:            req.PaidBy,
+		Participants:      req.Participants,
+		ParticipantSplits: participantSplits,
+		IsDeleted:         false,
+		DeletedAt:         nil,
+		CreatedBy:         userID,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
 	}
 
 	err = e.expenseRepository.CreateExpense(ctx, expense)
@@ -140,17 +161,21 @@ func (e *expenseUseCase) CreateExpense(ctx context.Context, req expense.CreateEx
 		return err
 	}
 
-	share := req.Amount / float64(len(req.Participants))
-	expenseSplits := make([]entity.ExpenseSplits, len(req.Participants))
-	for i, participant := range req.Participants {
-		expenseSplits[i] = entity.ExpenseSplits{
+	share := remainingAmount / float64(len(remainingParticipants))
+	expenseSplits := make([]entity.ExpenseSplits, 0, len(req.Participants))
+	for _, participant := range req.Participants {
+		amount := share
+		if customAmount, ok := customSplits[participant]; ok {
+			amount = customAmount
+		}
+		expenseSplits = append(expenseSplits, entity.ExpenseSplits{
 			ID:         primitive.NewObjectID(),
 			ExpensesID: expenseID.Hex(),
 			UserId:     participant,
-			Amount:     share,
+			Amount:     amount,
 			CreatedAt:  time.Now(),
 			UpdatedAt:  time.Now(),
-		}
+		})
 	}
 
 	err = e.expenseSplitRepository.CreateExpenseSplits(ctx, expenseSplits)
@@ -221,23 +246,6 @@ func (e *expenseUseCase) UpdateExpenseById(ctx context.Context, expenseID string
 		return errors.New("expense not found")
 	}
 
-	if req.Image != nil {
-		if expense.ImagePublicID != "" {
-			e.cloudinaryUploader.DeleteImage(ctx, expense.ImagePublicID)
-		}
-		tempPath := fmt.Sprintf("temp_%s", req.Image.Filename)
-		if err := helper.SaveUploadedFile(req.Image, tempPath); err != nil {
-			return err
-		}
-		defer os.Remove(tempPath)
-		image, publicID, err := e.cloudinaryUploader.UploadImage(ctx, tempPath, "expenses")
-		if err != nil {
-			return err
-		}
-		expense.Image = image
-		expense.ImagePublicID = publicID
-	}
-
 	if req.Date != "" {
 		date, err := time.Parse("2006-01-02", req.Date)
 		if err != nil {
@@ -256,6 +264,24 @@ func (e *expenseUseCase) UpdateExpenseById(ctx context.Context, expenseID string
 
 	if req.Category != "" {
 		expense.Category = req.Category
+	}
+
+	if req.Image != nil {
+		if expense.ImagePublicID != "" {
+			e.cloudinaryUploader.DeleteImage(ctx, expense.ImagePublicID)
+		}
+		tempPath := fmt.Sprintf("temp_%s", req.Image.Filename)
+		if err := helper.SaveUploadedFile(req.Image, tempPath); err != nil {
+			return err
+		}
+		defer os.Remove(tempPath)
+
+		image, publicID, err := e.cloudinaryUploader.UploadImage(ctx, tempPath, "expenses")
+		if err != nil {
+			return err
+		}
+		expense.Image = image
+		expense.ImagePublicID = publicID
 	}
 
 	paidByList := expense.PaidBy
@@ -277,22 +303,45 @@ func (e *expenseUseCase) UpdateExpenseById(ctx context.Context, expenseID string
 			}
 		}
 
+		var participantSplits []entity.ParticipantSplit
+		if req.ParticipantSplits != "" {
+			json.Unmarshal([]byte(req.ParticipantSplits), &participantSplits)
+		}
+
+		remainingAmount := req.Amount
+		var customSplits = make(map[string]float64)
+		for _, split := range participantSplits {
+			customSplits[split.UserID] = split.Amount
+			remainingAmount -= split.Amount
+		}
+
+		var remainingParticipants []string
+		for _, participant := range req.Participants {
+			if _, ok := customSplits[participant]; !ok {
+				remainingParticipants = append(remainingParticipants, participant)
+			}
+		}
+
 		err = e.expenseSplitRepository.DeleteExpenseSplitsByExpenseID(ctx, expenseID)
 		if err != nil {
 			return err
 		}
 
-		share := req.Amount / float64(len(req.Participants))
-		expenseSplits := make([]entity.ExpenseSplits, len(req.Participants))
-		for i, participant := range req.Participants {
-			expenseSplits[i] = entity.ExpenseSplits{
+		share := remainingAmount / float64(len(remainingParticipants))
+		expenseSplits := make([]entity.ExpenseSplits, 0, len(req.Participants))
+		for _, participant := range req.Participants {
+			amount := share
+			if customAmount, ok := customSplits[participant]; ok {
+				amount = customAmount
+			}
+			expenseSplits = append(expenseSplits, entity.ExpenseSplits{
 				ID:         primitive.NewObjectID(),
 				ExpensesID: expenseIDObject.Hex(),
 				UserId:     participant,
-				Amount:     share,
+				Amount:     amount,
 				CreatedAt:  time.Now(),
 				UpdatedAt:  time.Now(),
-			}
+			})
 		}
 
 		err = e.expenseSplitRepository.CreateExpenseSplits(ctx, expenseSplits)
@@ -301,6 +350,7 @@ func (e *expenseUseCase) UpdateExpenseById(ctx context.Context, expenseID string
 		}
 
 		expense.Participants = req.Participants
+		expense.ParticipantSplits = participantSplits
 	}
 
 	expense.UpdatedAt = time.Now()
