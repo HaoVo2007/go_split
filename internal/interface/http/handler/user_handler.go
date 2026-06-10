@@ -125,13 +125,13 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	err := h.userUseCase.UpdateProfile(c.Request.Context(), req)
+	user, err := h.userUseCase.UpdateProfile(c.Request.Context(), req)
 	if err != nil {
 		response.InternalServerError(c, err)
 		return
 	}
 
-	response.Success(c, "update profile successfully", nil)
+	response.Success(c, "update profile successfully", user)
 }
 
 func (h *UserHandler) GetUsers(c *gin.Context) {

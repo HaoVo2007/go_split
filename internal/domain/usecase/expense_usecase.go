@@ -304,7 +304,7 @@ func (e *expenseUseCase) UpdateExpenseById(ctx context.Context, expenseID string
 	}
 
 	expense.UpdatedAt = time.Now()
-
+	expense.PaidBy = paidByList
 	return e.expenseRepository.UpdateExpenseById(ctx, expenseIDObject, expense)
 }
 

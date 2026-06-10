@@ -123,7 +123,7 @@ func (h *ExpenseHandler) GetExpensesByGroupID(c *gin.Context) {
 	pageIndex := c.Query("page_index")
 
 	if pageSize == "" {
-		pageSize = "10"
+		pageSize = "3"
 	}
 
 	if pageIndex == "" {

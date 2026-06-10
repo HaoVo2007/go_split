@@ -26,7 +26,7 @@ type UserUseCase interface {
 	LoginUser(ctx context.Context, req user.LoginUserRequest) (*entity.Users, error)
 	RegisterUser(ctx context.Context, req user.RegisterUserRequest) (*entity.Users, error)
 	LogoutUser(ctx context.Context) error
-	UpdateProfile(ctx context.Context, req user.UpdateProfileRequest) error
+	UpdateProfile(ctx context.Context, req user.UpdateProfileRequest) (*entity.Users, error)
 	GetUsers(ctx context.Context) ([]*entity.Users, error)
 	GetUserById(ctx context.Context, userID string) (*entity.Users, error)
 	UpdateUser(ctx context.Context, userID string, req user.UpdateUserRequest) error
@@ -239,24 +239,24 @@ func (u *userUseCase) LogoutUser(ctx context.Context) error {
 	return nil
 }
 
-func (u *userUseCase) UpdateProfile(ctx context.Context, req user.UpdateProfileRequest) error {
+func (u *userUseCase) UpdateProfile(ctx context.Context, req user.UpdateProfileRequest) (*entity.Users, error) {
 	userID, err := helper.GetUserID(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	objectID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	userCheck, err := u.userRepository.FindUserByID(ctx, objectID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if userCheck == nil {
-		return errors.New("user not found")
+		return nil, errors.New("user not found")
 	}
 
 	if userCheck.Profile == nil {
@@ -268,12 +268,7 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, req user.UpdateProfileR
 	}
 
 	if req.ImageType == "preset" {
-		if userCheck.Profile.ImagePublicID != nil {
-			u.cloudinaryUploader.DeleteImage(ctx, *userCheck.Profile.ImagePublicID)
-		}
-
-		userCheck.Profile.Image = &req.ImageUrl
-		userCheck.Profile.ImagePublicID = nil
+/api/v1/groups/6a26ede90cdb1c7df932ea9d/members
 	}
 
 	if req.ImageType == "upload" && req.Image != nil {
@@ -283,13 +278,13 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, req user.UpdateProfileR
 
 		tempPath := fmt.Sprintf("temp_%s", req.Image.Filename)
 		if err := helper.SaveUploadedFile(req.Image, tempPath); err != nil {
-			return err
+			return nil, err
 		}
 		defer os.Remove(tempPath)
 
 		image, publicID, err := u.cloudinaryUploader.UploadImage(ctx, tempPath, "users")
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		userCheck.Profile.Image = &image
@@ -311,10 +306,15 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, req user.UpdateProfileR
 
 	err = u.userRepository.UpdateUser(ctx, userCheck.ID, updateFields)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+
+	userCheck.Profile = userCheck.Profile
+	userCheck.Password = ""
+	userCheck.UpdatedAt = time.Now()
+
+	return userCheck, nil
 }
 
 func (u *userUseCase) GetUsers(ctx context.Context) ([]*entity.Users, error) {
