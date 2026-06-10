@@ -268,7 +268,7 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, req user.UpdateProfileR
 	}
 
 	if req.ImageType == "preset" {
-/api/v1/groups/6a26ede90cdb1c7df932ea9d/members
+		// TODO: Implement preset image
 	}
 
 	if req.ImageType == "upload" && req.Image != nil {
