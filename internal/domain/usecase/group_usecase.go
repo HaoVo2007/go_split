@@ -45,15 +45,20 @@ func NewGroupUseCase(
 	cloudinaryUploader *helper.CloudinaryUploader,
 ) GroupUseCase {
 	return &groupUseCase{
-		groupRepository:    groupRepository,
-		userRepository:     userRepository,
-		expenseRepository:  expenseRepository,
+		groupRepository:        groupRepository,
+		userRepository:         userRepository,
+		expenseRepository:      expenseRepository,
 		expenseSplitRepository: expenseSplitRepository,
-		cloudinaryUploader: cloudinaryUploader,
+		cloudinaryUploader:     cloudinaryUploader,
 	}
 }
 
 func (u *groupUseCase) CreateGroup(ctx context.Context, req group.CreateGroupRequest) error {
+	userID, err := helper.GetUserID(ctx)
+	if err != nil {
+		return err
+	}
+
 	var imageURL string
 	var imagePublicID string
 	if req.Image != nil {
@@ -68,11 +73,6 @@ func (u *groupUseCase) CreateGroup(ctx context.Context, req group.CreateGroupReq
 		}
 		imageURL = image
 		imagePublicID = publicID
-	}
-
-	userID, err := helper.GetUserID(ctx)
-	if err != nil {
-		return err
 	}
 
 	group := entity.Groups{
@@ -211,7 +211,7 @@ func (u *groupUseCase) GetGroupMembers(ctx context.Context, id string) ([]*entit
 	}
 
 	userIDs = append(userIDs, createdByID)
-	
+
 	users, err := u.userRepository.GetUsersByIDs(ctx, userIDs)
 
 	return users, nil

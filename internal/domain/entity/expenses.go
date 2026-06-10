@@ -7,21 +7,27 @@ import (
 )
 
 type Expenses struct {
-	ID            primitive.ObjectID `bson:"_id" json:"id"`
-	GroupID       string             `bson:"group_id" json:"group_id"`
-	Image         string             `bson:"image" json:"image"`
-	ImagePublicID string             `bson:"image_public_id" json:"image_public_id"`
-	Date          time.Time          `bson:"date" json:"date"`
-	Name          string             `bson:"name" json:"name"`
-	Amount        float64            `bson:"amount" json:"amount"`
-	Category      string             `bson:"category" json:"category"`
-	PaidBy        []string           `bson:"paid_by" json:"paid_by"`
-	Participants  []string           `bson:"participants" json:"participants"`
-	IsDeleted     bool               `bson:"is_deleted" json:"is_deleted"`
-	DeletedAt     *time.Time         `bson:"deleted_at" json:"deleted_at"`
-	CreatedBy     string             `bson:"created_by" json:"created_by"`
-	CreatedAt     time.Time          `bson:"created_at" json:"created_at"`
-	UpdatedAt     time.Time          `bson:"updated_at" json:"updated_at"`
+	ID                primitive.ObjectID `bson:"_id" json:"id"`
+	GroupID           string             `bson:"group_id" json:"group_id"`
+	Image             string             `bson:"image" json:"image"`
+	ImagePublicID     string             `bson:"image_public_id" json:"image_public_id"`
+	Date              time.Time          `bson:"date" json:"date"`
+	Name              string             `bson:"name" json:"name"`
+	Amount            float64            `bson:"amount" json:"amount"`
+	Category          string             `bson:"category" json:"category"`
+	PaidBy            []string           `bson:"paid_by" json:"paid_by"`
+	Participants      []string           `bson:"participants" json:"participants"`
+	ParticipantSplits []ParticipantSplit `bson:"participant_splits" json:"participant_splits"`
+	IsDeleted         bool               `bson:"is_deleted" json:"is_deleted"`
+	DeletedAt         *time.Time         `bson:"deleted_at" json:"deleted_at"`
+	CreatedBy         string             `bson:"created_by" json:"created_by"`
+	CreatedAt         time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt         time.Time          `bson:"updated_at" json:"updated_at"`
+}
+
+type ParticipantSplit struct {
+	UserID string  `bson:"user_id" json:"user_id"`
+	Amount float64 `bson:"amount" json:"amount"`
 }
 
 type ExpenseSplits struct {
