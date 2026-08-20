@@ -10,6 +10,11 @@ import (
 	"go-split/internal/interface/websocket"
 	websocketHandler "go-split/internal/interface/websocket/handler"
 	"go-split/internal/interface/websocket/hub"
+	"go-split/internal/rag/embedding"
+	ragHandler "go-split/internal/rag/handler"
+	"go-split/internal/rag/llm"
+	ragRepository "go-split/internal/rag/repository"
+	ragService "go-split/internal/rag/service"
 	"go-split/pkg/config"
 	"go-split/pkg/libs/helper"
 	"log"
@@ -25,6 +30,8 @@ type Container struct {
 	Router             *gin.Engine
 	MongoDB            *mongo.Database
 	CloudinaryUploader *helper.CloudinaryUploader
+	OllamaEmbedder     *embedding.OllamaEmbedder
+	GroqLLM            *llm.GroqLLM
 	Repository         *Repository
 	UseCase            *UseCase
 	Handler            *Handler
@@ -37,6 +44,7 @@ type Repository struct {
 	ExpenseRepository      repository.ExpenseRepository
 	ExpenseSplitRepository repository.ExpenseSplitRepository
 	MessageRepository      repository.MessageRepository
+	ChatRepository         ragRepository.ChatRepository
 }
 
 type UseCase struct {
@@ -51,6 +59,7 @@ type Handler struct {
 	GroupHandler   *handler.GroupHandler
 	ExpenseHandler *handler.ExpenseHandler
 	MessageHandler *handler.MessageHandler
+	ChatAIHandler  *ragHandler.ChatAIHandler
 	ChatHandler    *websocketHandler.ChatHandler
 }
 
@@ -81,6 +90,10 @@ func NewContainer() (*Container, error) {
 
 	c.initRepositories()
 
+	c.initEmbedding()
+
+	c.initLLM()
+
 	hub := hub.NewHub(c.Repository.MessageRepository)
 
 	c.Hub = hub
@@ -94,6 +107,14 @@ func NewContainer() (*Container, error) {
 	go c.Hub.Run()
 
 	return c, nil
+}
+
+func (c *Container) initEmbedding() {
+	c.OllamaEmbedder = embedding.NewOllamaEmbedder(c.Config.RAG.BaseURLEmbedding, c.Config.RAG.ModelEmbedding)
+}
+
+func (c *Container) initLLM() {
+	c.GroqLLM = llm.NewGroqLLM(c.Config.RAG.BaseURLLLM, c.Config.RAG.ModelLLM, c.Config.RAG.APIKeyLLM)
 }
 
 func (c *Container) initDatabase() error {
@@ -126,7 +147,7 @@ func (c *Container) initRouter() {
 }
 
 func (c *Container) setupRouter() {
-	http.SetupRouter(c.Router, c.Handler.UserHandler, c.Handler.GroupHandler, c.Handler.MessageHandler, c.Handler.ExpenseHandler)
+	http.SetupRouter(c.Router, c.Handler.UserHandler, c.Handler.GroupHandler, c.Handler.MessageHandler, c.Handler.ExpenseHandler, c.Handler.ChatAIHandler)
 	websocket.SetupRouter(c.Router, c.Handler.ChatHandler)
 }
 
@@ -136,6 +157,7 @@ func (c *Container) initRepositories() {
 	c.Repository.ExpenseRepository = infrastructureRepository.NewExpenseRepositoryMongo(c.MongoDB.Collection("expenses"))
 	c.Repository.ExpenseSplitRepository = infrastructureRepository.NewExpenseSplitRepository(c.MongoDB.Collection("expense_splits"))
 	c.Repository.MessageRepository = infrastructureRepository.NewMessageRepositoryMongo(c.MongoDB.Collection("messages"), c.MongoDB.Collection("user_group_activity"))
+	c.Repository.ChatRepository = ragRepository.NewChatRepository(c.MongoDB.Collection("chat_ai"), c.MongoDB.Collection("chat_ai_documents"))
 }
 
 func (c *Container) initUseCases() {
@@ -151,4 +173,5 @@ func (c *Container) initHandlers() {
 	c.Handler.ExpenseHandler = handler.NewExpenseHandler(c.UseCase.ExpenseUseCase)
 	c.Handler.MessageHandler = handler.NewMessageHandler(c.UseCase.MessageUseCase)
 	c.Handler.ChatHandler = websocketHandler.NewChatHandler(c.Hub, c.Repository.GroupRepository, c.Repository.MessageRepository, c.Repository.UserRepository)
+	c.Handler.ChatAIHandler = ragHandler.NewChatAIHandler(ragService.NewChatService(c.Repository.ChatRepository, c.OllamaEmbedder, c.GroqLLM))
 }

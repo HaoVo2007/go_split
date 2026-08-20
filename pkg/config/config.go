@@ -10,6 +10,7 @@ type Config struct {
 	Server     ServerConfig
 	MongoDB    MongoDBConfig
 	Cloudinary CloudinaryConfig
+	RAG        RAGConfig
 }
 
 type ServerConfig struct {
@@ -30,6 +31,14 @@ type CloudinaryConfig struct {
 	URL string
 }
 
+type RAGConfig struct {
+	BaseURLEmbedding string
+	ModelEmbedding   string
+	BaseURLLLM       string
+	ModelLLM         string
+	APIKeyLLM        string
+}
+
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 	return &Config{
@@ -47,6 +56,13 @@ func Load() (*Config, error) {
 		},
 		Cloudinary: CloudinaryConfig{
 			URL: getEnv("CLOUDINARY_URL", ""),
+		},
+		RAG: RAGConfig{
+			BaseURLEmbedding: getEnv("BASE_URL_EMBEDDING", ""),
+			ModelEmbedding:   getEnv("MODEL_EMBEDDING", ""),
+			BaseURLLLM:       getEnv("BASE_URL_LLM", ""),
+			ModelLLM:         getEnv("MODEL_LLM", ""),
+			APIKeyLLM:        getEnv("API_KEY_LLM", ""),
 		},
 	}, nil
 }
